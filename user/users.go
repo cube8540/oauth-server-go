@@ -74,7 +74,7 @@ type verificationToken struct {
 }
 
 func newToken(token string) verificationToken {
-	expiresAt := time.Now().Add(time.Minute * expiresMinute)
+	expiresAt := time.Now().Add(expiresMinute)
 	return verificationToken{
 		token:     token,
 		expiresAt: expiresAt,
