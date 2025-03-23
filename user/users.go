@@ -3,6 +3,7 @@ package user
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"time"
 )
 
@@ -24,9 +25,14 @@ func (a Account) IsActive() bool {
 	return a.active
 }
 
-// hashing 저장된 패스워드를 [Hasher] 를 통해 해싱하여 저장한다.
-func (a *Account) hashing(hasher Hasher) {
-	a.password = hasher.Hashing(a.password)
+// Hashing 저장된 패스워드를 [Hasher] 를 통해 해싱하여 저장한다.
+func (a *Account) Hashing(hasher Hasher) error {
+	hashed, err := hasher.Hashing(a.password)
+	if err != nil {
+		return err
+	}
+	a.password = hashed
+	return nil
 }
 
 // activate 토큰을 받아 [Account] 를 활성화 시킨다.
@@ -51,7 +57,31 @@ func (a *Account) changePassword(password, token string) error {
 
 // Hasher 문자열을 받아 해싱하여 반환하는 함수를 정의한 인터페이스
 type Hasher interface {
-	Hashing(v string) string
+	Hashing(v string) (string, error)
+}
+
+// BcryptHasher Bcrypt 해싱
+type BcryptHasher struct{}
+
+func NewBcryptHasher() BcryptHasher {
+	return BcryptHasher{}
+}
+
+func (_ BcryptHasher) Hashing(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func (_ BcryptHasher) Compare(hashed, password string) (bool, error) {
+	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
+	if err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
 }
 
 // expiresMinute [verificationToken]생성시 설정될 기본 만료시간으로 설정된 시간은 5분이다.
