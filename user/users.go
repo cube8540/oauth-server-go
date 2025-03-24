@@ -13,7 +13,8 @@ var (
 
 // Account 유저의 로그인에 필요한 정보를 담은 구조체
 type Account struct {
-	ID            string
+	ID            uint
+	Username      string
 	password      string
 	active        bool
 	activeToken   *verificationToken
