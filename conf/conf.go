@@ -19,8 +19,15 @@ type (
 		Dbname   string `json:"dbname"`
 	}
 
+	Redis struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+	}
+
 	Configuration struct {
-		DB DB `json:"db"`
+		Port  string `json:"port"`
+		DB    DB     `json:"db"`
+		Redis Redis  `json:"redis"`
 	}
 )
 
@@ -66,4 +73,8 @@ func initDB() {
 
 func GetDB() *gorm.DB {
 	return db
+}
+
+func GetServerPort() string {
+	return config.Port
 }

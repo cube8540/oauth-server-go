@@ -17,12 +17,12 @@ type (
 	}
 
 	LoginRequest struct {
-		Username string
-		Password string
+		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 )
 
-func Login(req LoginRequest, hasher Hasher) (*LoginModel, error) {
+func Login(req *LoginRequest, hasher Hasher) (*LoginModel, error) {
 	account, err := FindAccountByUsername(req.Username)
 	if err != nil {
 		return nil, fmt.Errorf("error by repository %w", err)
