@@ -6,9 +6,10 @@ import (
 )
 
 var (
-	ErrAccountNotFound  = errors.New("account cannot found")
-	ErrPasswordNotMatch = errors.New("password does not match")
-	ErrAccountLocked    = errors.New("account is locked")
+	ErrRequireParamsMissing = errors.New("required parameters are missing")
+	ErrAccountNotFound      = errors.New("account cannot found")
+	ErrPasswordNotMatch     = errors.New("password does not match")
+	ErrAccountLocked        = errors.New("account is locked")
 )
 
 type (
@@ -23,6 +24,10 @@ type (
 )
 
 func Login(req *LoginRequest, hasher Hasher) (*LoginModel, error) {
+	if req.Username == "" || req.Password == "" {
+		return nil, ErrRequireParamsMissing
+	}
+
 	account, err := FindAccountByUsername(req.Username)
 	if err != nil {
 		return nil, fmt.Errorf("error by repository %w", err)
