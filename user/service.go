@@ -26,20 +26,15 @@ func Login(req LoginRequest, hasher Hasher) (*LoginModel, error) {
 	account, err := FindAccountByUsername(req.Username)
 	if err != nil {
 		return nil, fmt.Errorf("error by repository %w", err)
-	}
-	if account == nil {
+	} else if account == nil {
 		return nil, ErrAccountNotFound
 	}
 
-	cmp, err := account.PasswordCompare(hasher, req.Password)
-	if err != nil {
+	if cmp, err := account.PasswordCompare(hasher, req.Password); err != nil {
 		return nil, err
-	}
-	if !cmp {
+	} else if !cmp {
 		return nil, ErrPasswordNotMatch
-	}
-
-	if !account.active {
+	} else if !account.active {
 		return nil, ErrAccountLocked
 	}
 
