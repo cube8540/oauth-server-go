@@ -36,6 +36,10 @@ func (a *Account) Hashing(hasher Hasher) error {
 	return nil
 }
 
+func (a Account) PasswordCompare(hasher Hasher, raw string) (bool, error) {
+	return hasher.Compare(a.password, raw)
+}
+
 // activate 토큰을 받아 [Account] 를 활성화 시킨다.
 func (a *Account) activate(token string) error {
 	if err := tokenMatches(token, a.activeToken); err != nil {
@@ -59,6 +63,7 @@ func (a *Account) changePassword(password, token string) error {
 // Hasher 문자열을 받아 해싱하여 반환하는 함수를 정의한 인터페이스
 type Hasher interface {
 	Hashing(v string) (string, error)
+	Compare(hashed, cmp string) (bool, error)
 }
 
 // BcryptHasher Bcrypt 해싱
