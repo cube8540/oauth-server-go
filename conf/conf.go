@@ -14,20 +14,24 @@ import (
 
 type (
 	DB struct {
-		Host     string `json:"host"`
-		Port     int    `json:"port"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Dbname   string `json:"dbname"`
+		Host        string `json:"host"`
+		Port        int    `json:"port"`
+		Username    string `json:"username"`
+		Password    string `json:"password"`
+		Dbname      string `json:"dbname"`
+		MaxIdleSize int    `json:"max_idle_size"`
+		MaxOpenSize int    `json:"max_open_size"`
 	}
 
 	Redis struct {
-		Host string `json:"host"`
-		Port int    `json:"port"`
+		Host        string `json:"host"`
+		Port        int    `json:"port"`
+		MaxIdleSize int    `json:"max_idle_size"`
 	}
 
 	Session struct {
-		Secret string `json:"secret"`
+		Secret    string `json:"secret"`
+		MaxAgeSec int    `json:"max_age_sec"`
 	}
 
 	Configuration struct {
@@ -77,18 +81,28 @@ func initDB() {
 		panic(err)
 	}
 
+	sqlDB, err := conn.DB()
+	if err != nil {
+		panic(err)
+	}
+	sqlDB.SetMaxIdleConns(cfg.MaxIdleSize)
+	sqlDB.SetMaxOpenConns(cfg.MaxOpenSize)
+
 	db = conn
 }
 
 func initRedisSessionStore() {
-	address := config.Redis.Host + ":" + strconv.Itoa(config.Redis.Port)
-	secret := config.Session.Secret
-	store, err := redis.NewStore(10, "tcp", address, "", []byte(secret))
+	redisOpt := config.Redis
+	sessionOpt := config.Session
+
+	address := redisOpt.Host + ":" + strconv.Itoa(redisOpt.Port)
+	store, err := redis.NewStore(redisOpt.MaxIdleSize, "tcp", address, "", []byte(sessionOpt.Secret))
 	if err != nil {
 		panic(err)
 	}
+
 	store.Options(sessions.Options{
-		MaxAge: 3600,
+		MaxAge: sessionOpt.MaxAgeSec,
 	})
 	redisSessionStore = store
 }
