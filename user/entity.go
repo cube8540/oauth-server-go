@@ -10,9 +10,9 @@ type AccountEntity struct {
 	Password               string         `gorm:"column:password"`
 	Active                 bool           `gorm:"column:active"`
 	ActiveToken            sql.NullString `gorm:"column:active_token"`
-	ActiveExpires          sql.NullTime   `gorm:"column:active_token_expires"`
+	ActiveTokenExpires     sql.NullTime   `gorm:"column:active_token_expires"`
 	PasswordToken          sql.NullString `gorm:"column:password_token"`
-	PasswordExpires        sql.NullTime   `gorm:"column:password_token_expires"`
+	PasswordTokenExpires   sql.NullTime   `gorm:"column:password_token_expires"`
 	LastPasswordModifiedAt sql.NullTime   `gorm:"column:last_mod_password_at"`
 	RegisteredAt           sql.NullTime   `gorm:"column:reg_at"`
 	ModifiedAt             sql.NullTime   `gorm:"column:mod_at"`
@@ -35,14 +35,14 @@ func (entity AccountEntity) ToDomain() *Account {
 	if entity.ActiveToken.Valid {
 		account.activeToken = &verificationToken{
 			token:     entity.ActiveToken.String,
-			expiresAt: entity.ActiveExpires.Time,
+			expiresAt: entity.ActiveTokenExpires.Time,
 		}
 	}
 
 	if entity.PasswordToken.Valid {
 		account.passwordToken = &verificationToken{
 			token:     entity.PasswordToken.String,
-			expiresAt: entity.PasswordExpires.Time,
+			expiresAt: entity.PasswordTokenExpires.Time,
 		}
 	}
 
