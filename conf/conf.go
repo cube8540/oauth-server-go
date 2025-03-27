@@ -2,6 +2,8 @@ package conf
 
 import (
 	"encoding/json"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/redis"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"os"
@@ -24,19 +26,26 @@ type (
 		Port int    `json:"port"`
 	}
 
+	Session struct {
+		Secret string `json:"secret"`
+	}
+
 	Configuration struct {
-		Port  string `json:"port"`
-		DB    DB     `json:"db"`
-		Redis Redis  `json:"redis"`
+		Port    string  `json:"port"`
+		DB      DB      `json:"db"`
+		Redis   Redis   `json:"redis"`
+		Session Session `json:"session"`
 	}
 )
 
 var config Configuration
 var db *gorm.DB
+var redisSessionStore redis.Store
 
 func Init() {
 	initConfig()
 	initDB()
+	initRedisSessionStore()
 }
 
 func initConfig() {
@@ -71,10 +80,27 @@ func initDB() {
 	db = conn
 }
 
+func initRedisSessionStore() {
+	address := config.Redis.Host + ":" + strconv.Itoa(config.Redis.Port)
+	secret := config.Session.Secret
+	store, err := redis.NewStore(10, "tcp", address, "", []byte(secret))
+	if err != nil {
+		panic(err)
+	}
+	store.Options(sessions.Options{
+		MaxAge: 3600,
+	})
+	redisSessionStore = store
+}
+
 func GetDB() *gorm.DB {
 	return db
 }
 
 func GetServerPort() string {
 	return config.Port
+}
+
+func GetRedisSessionStore() redis.Store {
+	return redisSessionStore
 }

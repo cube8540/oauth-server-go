@@ -14,7 +14,7 @@ var (
 
 type (
 	LoginModel struct {
-		Username string
+		Username string `json:"username"`
 	}
 
 	LoginRequest struct {

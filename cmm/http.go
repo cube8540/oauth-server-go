@@ -1,5 +1,7 @@
 package cmm
 
+const MsgOK = "ok"
+
 const (
 	ErrMsgBadRequest = "bad_request"
 	ErrMsgBadState   = "bad_state"
@@ -7,6 +9,10 @@ const (
 )
 
 type ErrCode string
+
+type OK struct {
+	Data any `json:"data"`
+}
 
 type ErrorResponse struct {
 	ErrCode ErrCode `json:"err_code"`
@@ -18,4 +24,8 @@ func NewErr(code ErrCode, message string) ErrorResponse {
 		ErrCode: code,
 		Message: message,
 	}
+}
+
+func NewOK(data any) OK {
+	return OK{Data: data}
 }

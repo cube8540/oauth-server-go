@@ -1,8 +1,10 @@
 package user
 
 import (
+	json2 "encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"oauth-server-go/cmm"
@@ -10,21 +12,27 @@ import (
 
 func Routing(route *gin.Engine) {
 	auth := route.Group("/auth")
-	auth.POST("/login", login)
+	auth.POST("/login", handleLogin)
 }
 
-func login(c *gin.Context) {
-	var req LoginRequest
+func handleLogin(c *gin.Context) {
+	session := sessions.Default(c)
 
+	var req LoginRequest
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		handling(err, c)
 		return
 	}
 
-	if result, err := Login(&req, NewBcryptHasher()); err != nil {
+	if loginModel, err := Login(&req, NewBcryptHasher()); err != nil {
 		handling(err, c)
 	} else {
-		c.JSON(http.StatusOK, result)
+		json, _ := json2.Marshal(loginModel)
+
+		session.Set("login", json)
+		_ = session.Save()
+
+		c.JSON(http.StatusOK, cmm.NewOK(cmm.MsgOK))
 	}
 }
 
