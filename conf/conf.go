@@ -76,7 +76,9 @@ func initDB() {
 	cfg := config.DB
 	dsn := "host=" + cfg.Host + " user=" + cfg.Username + " password=" + cfg.Password + " dbname=" + cfg.Dbname + " port=" + strconv.Itoa(cfg.Port) + " sslmode=disable TimeZone=Asia/Shanghai"
 
-	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		PrepareStmt: true,
+	})
 	if err != nil {
 		panic(err)
 	}
