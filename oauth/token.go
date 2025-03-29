@@ -33,7 +33,8 @@ func (u UuidTokenIdGenerator) Generate() string {
 
 // Token 토큰
 type Token struct {
-	ID        string
+	ID        uint
+	Value     string
 	ClientID  string
 	Username  string
 	Scopes    []string
@@ -45,7 +46,7 @@ type Token struct {
 func NewToken(gen TokenIdGenerator, clientId, username string) *Token {
 	now := time.Now()
 	return &Token{
-		ID:        gen.Generate(),
+		Value:     gen.Generate(),
 		ClientID:  clientId,
 		Username:  username,
 		Scopes:    nil,
@@ -57,7 +58,8 @@ func NewToken(gen TokenIdGenerator, clientId, username string) *Token {
 
 // RefreshToken OAuth2 리프레시 토큰
 type RefreshToken struct {
-	ID        string
+	ID        uint
+	Value     string
 	IssuedAt  time.Time
 	ExpiresAt time.Time
 }
@@ -65,7 +67,7 @@ type RefreshToken struct {
 func NewRefreshToken(gen TokenIdGenerator) *RefreshToken {
 	now := time.Now()
 	return &RefreshToken{
-		ID:        gen.Generate(),
+		Value:     gen.Generate(),
 		IssuedAt:  now,
 		ExpiresAt: now.Add(refreshExpiresMinute),
 	}
