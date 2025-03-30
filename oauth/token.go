@@ -33,42 +33,21 @@ func (u UuidTokenIdGenerator) Generate() string {
 
 // Token 토큰
 type Token struct {
-	ID        uint
-	Value     string
-	ClientID  string
-	Username  string
-	Scopes    []string
-	Refresh   *RefreshToken
-	IssuedAt  time.Time
-	ExpiredAt time.Time
-}
-
-func NewToken(gen TokenIdGenerator, clientId, username string) *Token {
-	now := time.Now()
-	return &Token{
-		Value:     gen.Generate(),
-		ClientID:  clientId,
-		Username:  username,
-		Scopes:    nil,
-		Refresh:   nil,
-		IssuedAt:  now,
-		ExpiredAt: now.Add(tokenExpiresMinute),
-	}
+	ID           uint
+	Value        string
+	ClientID     string
+	Username     string
+	Scopes       []Scope `gorm:"many2many:token_scopes"`
+	RefreshToken RefreshToken
+	IssuedAt     time.Time
+	ExpiredAt    time.Time
 }
 
 // RefreshToken OAuth2 리프레시 토큰
 type RefreshToken struct {
 	ID        uint
 	Value     string
+	TokenID   uint
 	IssuedAt  time.Time
 	ExpiresAt time.Time
-}
-
-func NewRefreshToken(gen TokenIdGenerator) *RefreshToken {
-	now := time.Now()
-	return &RefreshToken{
-		Value:     gen.Generate(),
-		IssuedAt:  now,
-		ExpiresAt: now.Add(refreshExpiresMinute),
-	}
 }
