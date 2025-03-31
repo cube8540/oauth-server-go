@@ -5,19 +5,19 @@ import (
 	"strings"
 )
 
-type RedirectUris []string
+type Strings []string
 
-func (r *RedirectUris) Scan(src any) error {
+func (s *Strings) Scan(src any) error {
 	val, _ := src.([]byte)
-	*r = strings.Split(string(val), ",")
+	*s = strings.Split(string(val), ",")
 	return nil
 }
 
-func (r RedirectUris) Value() (driver.Value, error) {
-	if len(r) == 0 {
+func (s Strings) Value() (driver.Value, error) {
+	if len(s) == 0 {
 		return nil, nil
 	}
-	return []byte(strings.Join(r, ",")), nil
+	return []byte(strings.Join(s, ",")), nil
 }
 
 // Client OAuth2 클라이언트
@@ -26,5 +26,6 @@ type Client struct {
 	ClientID     string
 	Secret       string
 	OwnerID      string
-	RedirectUris RedirectUris
+	RedirectUris Strings
+	Scopes       Strings
 }

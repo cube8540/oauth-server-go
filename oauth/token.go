@@ -37,7 +37,7 @@ type Token struct {
 	Value        string
 	ClientID     string
 	Username     string
-	Scopes       []Scope `gorm:"many2many:token_scopes"`
+	Scopes       Strings
 	RefreshToken RefreshToken
 	IssuedAt     time.Time
 	ExpiredAt    time.Time
