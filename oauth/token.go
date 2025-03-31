@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"github.com/google/uuid"
+	"oauth-server-go/sql"
 	"time"
 )
 
@@ -33,21 +34,30 @@ func (u UuidTokenIdGenerator) Generate() string {
 
 // Token 토큰
 type Token struct {
-	ID           uint
-	Value        string
-	ClientID     string
-	Username     string
-	Scopes       Strings
-	RefreshToken RefreshToken
-	IssuedAt     time.Time
-	ExpiredAt    time.Time
+	ID        uint
+	Value     string `gorm:"column:token"`
+	ClientID  uint
+	Client    Client
+	Username  string
+	Scopes    sql.Strings
+	IssuedAt  time.Time
+	ExpiredAt time.Time
+}
+
+func (t Token) TableName() string {
+	return "users.oauth2_access_token"
 }
 
 // RefreshToken OAuth2 리프레시 토큰
 type RefreshToken struct {
 	ID        uint
-	Value     string
+	Value     string `gorm:"column:token"`
 	TokenID   uint
+	Token     Token
 	IssuedAt  time.Time
 	ExpiresAt time.Time
+}
+
+func (t RefreshToken) TableName() string {
+	return "users.oauth2_refresh_token"
 }
