@@ -2,6 +2,9 @@ package user
 
 import (
 	"database/sql"
+	"errors"
+	"gorm.io/gorm"
+	"oauth-server-go/conf"
 )
 
 // VerificationToken 인증토큰
@@ -23,4 +26,13 @@ type Account struct {
 
 func (a Account) TableName() string {
 	return "users.account"
+}
+
+func FindAccountByUsername(username string) *Account {
+	var account Account
+	err := conf.GetDB().Where(&Account{Username: username}).First(&account).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	return &account
 }

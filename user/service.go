@@ -2,10 +2,7 @@ package user
 
 import (
 	"errors"
-	"fmt"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
-	"oauth-server-go/conf"
 )
 
 var (
@@ -61,12 +58,9 @@ func Login(req *LoginRequest, hasher Hasher) (*LoginModel, error) {
 		return nil, ErrRequireParamsMissing
 	}
 
-	var account Account
-	err := conf.GetDB().Where(&Account{Username: req.Username}).First(&account).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	account := FindAccountByUsername(req.Username)
+	if account == nil {
 		return nil, ErrAccountNotFound
-	} else if err != nil {
-		return nil, fmt.Errorf("%w", err)
 	}
 
 	if cmp, err := hasher.Compare(account.Password, req.Password); err != nil {
