@@ -53,17 +53,33 @@ type (
 	}
 )
 
-func Login(req *LoginRequest, hasher Hasher) (*LoginModel, error) {
+type Service interface {
+	Login(req *LoginRequest) (*LoginModel, error)
+}
+
+func NewDefaultService() *DefaultService {
+	return &DefaultService{
+		repository: NewDefaultRepository(),
+		hasher:     NewBcryptHasher(),
+	}
+}
+
+type DefaultService struct {
+	repository Repository
+	hasher     Hasher
+}
+
+func (s DefaultService) Login(req *LoginRequest) (*LoginModel, error) {
 	if req.Username == "" || req.Password == "" {
 		return nil, ErrRequireParamsMissing
 	}
 
-	account := FindAccountByUsername(req.Username)
+	account := s.repository.FindAccountByUsername(req.Username)
 	if account == nil {
 		return nil, ErrAccountNotFound
 	}
 
-	if cmp, err := hasher.Compare(account.Password, req.Password); err != nil {
+	if cmp, err := s.hasher.Compare(account.Password, req.Password); err != nil {
 		return nil, err
 	} else if !cmp {
 		return nil, ErrPasswordNotMatch

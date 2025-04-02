@@ -10,12 +10,18 @@ import (
 	"oauth-server-go/cmm"
 )
 
-func Routing(route *gin.Engine) {
-	auth := route.Group("/auth")
-	auth.POST("/login", handleLogin)
+type Handler struct {
+	service Service
 }
 
-func handleLogin(c *gin.Context) {
+func Routing(route *gin.Engine) {
+	handler := Handler{service: NewDefaultService()}
+
+	auth := route.Group("/auth")
+	auth.POST("/login", handler.handleLogin)
+}
+
+func (h Handler) handleLogin(c *gin.Context) {
 	session := sessions.Default(c)
 
 	var req LoginRequest
@@ -24,7 +30,7 @@ func handleLogin(c *gin.Context) {
 		return
 	}
 
-	if loginModel, err := Login(&req, NewBcryptHasher()); err != nil {
+	if loginModel, err := h.service.Login(&req); err != nil {
 		handling(err, c)
 	} else {
 		json, _ := json2.Marshal(loginModel)
