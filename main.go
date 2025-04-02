@@ -8,8 +8,6 @@ import (
 )
 
 func main() {
-	conf.Init()
-
 	route := gin.Default()
 	route.Use(sessions.Sessions("g_session_id", conf.GetRedisSessionStore()))
 
