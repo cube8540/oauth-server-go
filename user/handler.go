@@ -8,14 +8,22 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"oauth-server-go/cmm"
+	"oauth-server-go/conf"
 )
 
 type Handler struct {
-	service Service
+	srv Service
+}
+
+func NewHandler(srv Service) *Handler {
+	return &Handler{srv: srv}
 }
 
 func Routing(route *gin.Engine) {
-	handler := Handler{service: NewDefaultService()}
+	repo := NewRepository(conf.GetDB())
+	srv := NewService(repo, NewBcryptHasher())
+
+	handler := NewHandler(srv)
 
 	auth := route.Group("/auth")
 	auth.POST("/login", handler.handleLogin)
@@ -30,15 +38,15 @@ func (h Handler) handleLogin(c *gin.Context) {
 		return
 	}
 
-	if loginModel, err := h.service.Login(&req); err != nil {
-		handling(err, c)
-	} else {
-		json, _ := json2.Marshal(loginModel)
+	if login, err := h.srv.Login(&req); err == nil {
+		json, _ := json2.Marshal(login)
 
 		session.Set("login", json)
 		_ = session.Save()
 
 		c.JSON(http.StatusOK, cmm.NewOK(cmm.MsgOK))
+	} else {
+		handling(err, c)
 	}
 }
 

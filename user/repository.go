@@ -3,22 +3,21 @@ package user
 import (
 	"errors"
 	"gorm.io/gorm"
-	"oauth-server-go/conf"
 )
 
-type Repository interface {
-	FindAccountByUsername(username string) *Account
+type AccountRepository interface {
+	FindByUsername(username string) *Account
 }
 
-type DefaultRepository struct {
+type GormAccountRepository struct {
 	db *gorm.DB
 }
 
-func NewDefaultRepository() *DefaultRepository {
-	return &DefaultRepository{conf.GetDB()}
+func NewRepository(db *gorm.DB) AccountRepository {
+	return &GormAccountRepository{db: db}
 }
 
-func (r DefaultRepository) FindAccountByUsername(username string) *Account {
+func (r GormAccountRepository) FindByUsername(username string) *Account {
 	var account Account
 	err := r.db.Where(&Account{Username: username}).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
