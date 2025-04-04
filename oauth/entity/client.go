@@ -1,6 +1,9 @@
-package oauth
+package entity
 
-import "oauth-server-go/sql"
+import (
+	"oauth-server-go/sql"
+	"time"
+)
 
 // Client OAuth2 클라이언트
 type Client struct {
@@ -8,8 +11,9 @@ type Client struct {
 	ClientID     string
 	Secret       string
 	OwnerID      string
-	RedirectUris sql.Strings
+	Redirects    sql.Strings `gorm:"column:redirect_uris"`
 	Scopes       sql.Strings
+	RegisteredAt time.Time `gorm:"column:reg_dt"`
 }
 
 func (c Client) TableName() string {

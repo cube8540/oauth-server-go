@@ -1,4 +1,4 @@
-package oauth
+package entity
 
 import (
 	"github.com/google/uuid"
@@ -34,14 +34,13 @@ func (u UuidTokenIdGenerator) Generate() string {
 
 // Token 토큰
 type Token struct {
-	ID        uint
-	Value     string `gorm:"column:token"`
-	ClientID  uint
-	Client    Client
-	Username  string
-	Scopes    sql.Strings
-	IssuedAt  time.Time
-	ExpiredAt time.Time
+	ID                  uint
+	Value               string `gorm:"column:token"`
+	ClientID            uint
+	Client              Client
+	Username            string
+	Scopes              sql.Strings
+	IssuedAt, ExpiredAt time.Time
 }
 
 func (t Token) TableName() string {
@@ -50,12 +49,11 @@ func (t Token) TableName() string {
 
 // RefreshToken OAuth2 리프레시 토큰
 type RefreshToken struct {
-	ID        uint
-	Value     string `gorm:"column:token"`
-	TokenID   uint
-	Token     Token
-	IssuedAt  time.Time
-	ExpiresAt time.Time
+	ID                  uint
+	Value               string `gorm:"column:token"`
+	TokenID             uint   `gorm:"column:access_token_id"`
+	Token               Token
+	IssuedAt, ExpiredAt time.Time
 }
 
 func (t RefreshToken) TableName() string {
