@@ -8,12 +8,13 @@ import (
 	"github.com/goccy/go-json"
 	"net/http"
 	"oauth-server-go/conf"
+	"oauth-server-go/crypto"
 	"oauth-server-go/protocol"
 )
 
 func Routing(route *gin.Engine) {
 	repo := NewRepository(conf.GetDB())
-	srv := NewAuthService(repo, NewBcryptHasher())
+	srv := NewAuthService(repo, crypto.NewBcryptHasher())
 
 	h := NewHandler(srv)
 

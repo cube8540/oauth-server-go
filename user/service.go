@@ -1,5 +1,7 @@
 package user
 
+import "oauth-server-go/crypto"
+
 type (
 	Login struct {
 		Username string `json:"username"`
@@ -17,10 +19,10 @@ type AuthService interface {
 
 type authService struct {
 	repo   AccountRepository
-	hasher Hasher
+	hasher crypto.Hasher
 }
 
-func NewAuthService(repo AccountRepository, hasher Hasher) AuthService {
+func NewAuthService(repo AccountRepository, hasher crypto.Hasher) AuthService {
 	return &authService{
 		repo:   repo,
 		hasher: hasher,
