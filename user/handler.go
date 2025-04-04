@@ -1,64 +1,64 @@
 package user
 
 import (
-	json2 "encoding/json"
 	"errors"
 	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/goccy/go-json"
 	"net/http"
-	"oauth-server-go/cmm"
 	"oauth-server-go/conf"
+	"oauth-server-go/protocol"
 )
-
-type Handler struct {
-	srv Service
-}
-
-func NewHandler(srv Service) *Handler {
-	return &Handler{srv: srv}
-}
 
 func Routing(route *gin.Engine) {
 	repo := NewRepository(conf.GetDB())
-	srv := NewService(repo, NewBcryptHasher())
+	srv := NewAuthService(repo, NewBcryptHasher())
 
-	handler := NewHandler(srv)
+	h := NewHandler(srv)
 
 	auth := route.Group("/auth")
-	auth.POST("/login", handler.handleLogin)
+	auth.POST("/login", protocol.NewHTTPHandler(h.Login, errHandler))
 }
 
-func (h Handler) handleLogin(c *gin.Context) {
-	session := sessions.Default(c)
+type Handler interface {
+	Login(c *gin.Context) error
+}
 
+type handler struct {
+	authSrv AuthService
+}
+
+func NewHandler(authSrv AuthService) Handler {
+	return &handler{authSrv: authSrv}
+}
+
+func (h handler) Login(c *gin.Context) error {
+	session := sessions.Default(c)
 	var req LoginRequest
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		handling(err, c)
-		return
+		return err
 	}
-
-	if login, err := h.srv.Login(&req); err == nil {
-		json, _ := json2.Marshal(login)
-
-		session.Set("login", json)
-		_ = session.Save()
-
-		c.JSON(http.StatusOK, cmm.NewOK(cmm.MsgOK))
-	} else {
-		handling(err, c)
+	login, err := h.authSrv.Login(&req)
+	if err != nil {
+		return err
 	}
+	serial, _ := json.Marshal(login)
+	session.Set("login", serial)
+	_ = session.Save()
+	c.JSON(http.StatusOK, protocol.NewOK(protocol.MsgOK))
+	return nil
 }
 
-func handling(err error, c *gin.Context) {
+func errHandler(err error, c *gin.Context) {
 	if errors.Is(err, ErrRequireParamsMissing) {
-		c.JSON(http.StatusBadRequest, cmm.NewErr(cmm.ErrMsgBadRequest, "require parameters are missing"))
+		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadRequest, "require parameters are missing"))
 	} else if errors.Is(err, ErrAccountNotFound) || errors.Is(err, ErrPasswordNotMatch) {
-		c.JSON(http.StatusBadRequest, cmm.NewErr(cmm.ErrMsgBadState, "id/password is not match"))
+		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadState, "id/password is not match"))
 	} else if errors.Is(err, ErrAccountLocked) {
-		c.JSON(http.StatusBadRequest, cmm.NewErr(cmm.ErrMsgBadState, "account is locked"))
+		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadState, "account is locked"))
 	} else {
 		fmt.Printf("%v\n", err)
-		c.JSON(http.StatusInternalServerError, cmm.NewErr(cmm.ErrMsgUnknown, "internal server error"))
+		c.JSON(http.StatusInternalServerError, protocol.NewErr(protocol.ErrMsgUnknown, "internal server error"))
 	}
 }

@@ -11,7 +11,7 @@ type VerificationToken struct {
 	ExpiresAt sql.NullTime `gorm:"column:token_expires"`
 }
 
-// Account 유저의 로그인에 필요한 정보를 담은 구조체
+// Account 유저 계정 엔티티
 type Account struct {
 	ID            uint
 	Username      string

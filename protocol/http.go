@@ -1,4 +1,6 @@
-package cmm
+package protocol
+
+import "github.com/gin-gonic/gin"
 
 const MsgOK = "ok"
 
@@ -28,4 +30,19 @@ func NewErr(code ErrCode, message string) ErrorResponse {
 
 func NewOK(data any) OK {
 	return OK{Data: data}
+}
+
+type RequestHandler func(c *gin.Context) error
+
+type ErrHandler func(err error, c *gin.Context)
+
+type HTTPHandler func(h RequestHandler, e ErrHandler) gin.HandlerFunc
+
+func NewHTTPHandler(h RequestHandler, e ErrHandler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		err := h(c)
+		if err != nil {
+			e(err, c)
+		}
+	}
 }

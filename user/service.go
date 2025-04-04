@@ -11,23 +11,23 @@ type (
 	}
 )
 
-type Service interface {
+type AuthService interface {
 	Login(req *LoginRequest) (*Login, error)
 }
 
-func NewService(repo AccountRepository, hasher Hasher) Service {
-	return &DefaultService{
+type authService struct {
+	repo   AccountRepository
+	hasher Hasher
+}
+
+func NewAuthService(repo AccountRepository, hasher Hasher) AuthService {
+	return &authService{
 		repo:   repo,
 		hasher: hasher,
 	}
 }
 
-type DefaultService struct {
-	repo   AccountRepository
-	hasher Hasher
-}
-
-func (s DefaultService) Login(req *LoginRequest) (*Login, error) {
+func (s authService) Login(req *LoginRequest) (*Login, error) {
 	if req.Username == "" || req.Password == "" {
 		return nil, ErrRequireParamsMissing
 	}
