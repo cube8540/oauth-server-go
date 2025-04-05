@@ -6,10 +6,20 @@ import (
 	"oauth-server-go/user/repository"
 )
 
+var accountRepo *repository.AccountRepository
 var hasher crypto.Hasher
 
 func init() {
+	accountRepo = repository.NewAccountRepository()
 	hasher = crypto.NewBcryptHasher()
+}
+
+type AuthService struct {
+	Login func(r *LoginRequest) (*LoginDetail, error)
+}
+
+func NewAuthService() *AuthService {
+	return &AuthService{Login: login}
 }
 
 type (
@@ -23,17 +33,17 @@ type (
 	}
 )
 
-func Login(req *LoginRequest) (*LoginDetail, error) {
-	if req.Username == "" || req.Password == "" {
+func login(r *LoginRequest) (*LoginDetail, error) {
+	if r.Username == "" || r.Password == "" {
 		return nil, user.ErrRequireParamsMissing
 	}
 
-	account := repository.FindAccountByUsername(req.Username)
+	account := accountRepo.FindByUsername(r.Username)
 	if account == nil {
 		return nil, user.ErrAccountNotFound
 	}
 
-	if cmp, err := hasher.Compare(account.Password, req.Password); err != nil {
+	if cmp, err := hasher.Compare(account.Password, r.Password); err != nil {
 		return nil, err
 	} else if !cmp {
 		return nil, user.ErrPasswordNotMatch

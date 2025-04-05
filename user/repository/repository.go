@@ -13,9 +13,19 @@ func init() {
 	db = conf.GetDB()
 }
 
-func FindAccountByUsername(username string) *entity.Account {
+type AccountRepository struct {
+	FindByUsername func(u string) *entity.Account
+}
+
+func NewAccountRepository() *AccountRepository {
+	return &AccountRepository{
+		FindByUsername: findAccountByUsername,
+	}
+}
+
+func findAccountByUsername(u string) *entity.Account {
 	var account entity.Account
-	err := db.Where(&entity.Account{Username: username}).First(&account).Error
+	err := db.Where(&entity.Account{Username: u}).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	} else {

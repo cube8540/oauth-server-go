@@ -12,19 +12,25 @@ import (
 	"oauth-server-go/user/service"
 )
 
+var authService *service.AuthService
+
+func init() {
+	authService = service.NewAuthService()
+}
+
 func Routing(route *gin.Engine) {
 	auth := route.Group("/auth")
 
-	auth.POST("/login", protocol.NewHTTPHandler(Login, errHandler))
+	auth.POST("/login", protocol.NewHTTPHandler(login, errHandler))
 }
 
-func Login(c *gin.Context) error {
+func login(c *gin.Context) error {
 	session := sessions.Default(c)
 	var req service.LoginRequest
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		return err
 	}
-	login, err := service.Login(&req)
+	login, err := authService.Login(&req)
 	if err != nil {
 		return err
 	}
