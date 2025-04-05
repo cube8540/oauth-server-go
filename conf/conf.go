@@ -43,6 +43,7 @@ type (
 )
 
 var config Configuration
+
 var db *gorm.DB
 var redisSessionStore redis.Store
 
