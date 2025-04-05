@@ -7,12 +7,6 @@ import (
 	"oauth-server-go/user/entity"
 )
 
-var db *gorm.DB
-
-func init() {
-	db = conf.GetDB()
-}
-
 type AccountRepository struct {
 	FindByUsername func(u string) *entity.Account
 }
@@ -25,7 +19,7 @@ func NewAccountRepository() *AccountRepository {
 
 func findAccountByUsername(u string) *entity.Account {
 	var account entity.Account
-	err := db.Where(&entity.Account{Username: u}).First(&account).Error
+	err := conf.GetDB().Where(&entity.Account{Username: u}).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	} else {
