@@ -14,21 +14,11 @@ const tokenExpiresMinute = time.Minute * 10
 // 7일로 설정
 const refreshExpiresMinute = time.Hour * 24 * 7
 
-// TokenIdGenerator 토큰 생성 인터페이스
-type TokenIdGenerator interface {
-	// Generate 문자열로 이루어진 새 토큰을 생성한다.
-	Generate() string
-}
+// TokenIDGenerator 토큰 생성 함수
+type TokenIDGenerator func() string
 
-// UuidTokenIdGenerator UUID 토큰 생성기
-type UuidTokenIdGenerator struct {
-}
-
-func NewTokenGenerator() UuidTokenIdGenerator {
-	return UuidTokenIdGenerator{}
-}
-
-func (u UuidTokenIdGenerator) Generate() string {
+// UUIDTokenIDGenerator UUID 토큰 생성기
+var UUIDTokenIDGenerator = func() string {
 	return uuid.New().String()
 }
 
