@@ -31,9 +31,9 @@ func (e *Err) Error() string {
 	return e.Message
 }
 
-func NewInvalidErr(m string) *Err {
+func NewErr(err error, m string) *Err {
 	return &Err{
-		Err:     ErrInvalidRequest,
+		Err:     err,
 		Message: m,
 	}
 }

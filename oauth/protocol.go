@@ -1,5 +1,7 @@
 package oauth
 
+import "strings"
+
 // CodeChallenge OAuth2 인증 코드 사용(교환) 때 인증에 사용될 코드(RFC 7636)
 type CodeChallenge string
 
@@ -58,4 +60,13 @@ type AuthorizationRequest struct {
 	ResponseType        ResponseType        `form:"response_type"`
 	CodeChallenge       CodeChallenge       `form:"code_challenge"`
 	CodeChallengeMethod CodeChallengeMethod `form:"code_challenge_method"`
+}
+
+func (r AuthorizationRequest) SplitScope() []string {
+	var s []string
+	if r.Scopes == "" {
+		return s
+	}
+	s = strings.Split(r.Scopes, " ")
+	return s
 }

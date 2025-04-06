@@ -2,6 +2,7 @@ package sql
 
 import (
 	"database/sql/driver"
+	"errors"
 	"strings"
 )
 
@@ -10,8 +11,16 @@ import (
 type Strings []string
 
 func (s *Strings) Scan(src any) error {
-	val, _ := src.([]byte)
-	*s = strings.Split(string(val), ",")
+	var val string
+	switch src.(type) {
+	case []byte:
+		val = string(src.([]byte))
+	case string:
+		val = src.(string)
+	default:
+		return errors.New("val cannot casting")
+	}
+	*s = strings.Split(val, ",")
 	return nil
 }
 

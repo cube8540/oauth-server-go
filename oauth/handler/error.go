@@ -11,13 +11,13 @@ import (
 
 type RedirectErr struct {
 	Err      *oauth.Err
-	Redirect string
+	Redirect *url.URL
 }
 
-func NewRedirectErr(err *oauth.Err, uri string) error {
+func NewRedirectErr(err *oauth.Err, u *url.URL) error {
 	return &RedirectErr{
 		Err:      err,
-		Redirect: uri,
+		Redirect: u,
 	}
 }
 
@@ -37,11 +37,11 @@ func errHandler(err error, c *gin.Context) {
 	m := parse(err)
 	var e *RedirectErr
 	if ok := errors.As(err, &e); ok {
-		to, _ := url.Parse(e.Redirect)
-		q := to.Query()
+		q := e.Redirect.Query()
 		q.Set("error", m.Code)
 		q.Set("error_description", m.Message)
-		c.Redirect(http.StatusMovedPermanently, to.String())
+		e.Redirect.RawQuery = q.Encode()
+		c.Redirect(http.StatusMovedPermanently, e.Redirect.String())
 	} else {
 		c.JSON(status(err), m)
 	}
