@@ -7,6 +7,7 @@ import (
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/service"
 	"oauth-server-go/protocol"
+	"oauth-server-go/security"
 )
 
 var clientService *service.ClientService
@@ -42,25 +43,29 @@ func authorize(c *gin.Context) error {
 		return oauth.NewErr(oauth.ErrUnauthorizedClient, "client cannot find")
 	}
 
+	_, exists := c.Get(security.ShareKeyLogin)
+	if !exists {
+		return oauth.NewErr(oauth.ErrInvalidRequest, "login is required")
+	}
+
 	redirect, err := client.RedirectURL(r.Redirect)
-	u, _ := url.Parse(redirect)
 	if err != nil {
 		return err
 	}
+	u, _ := url.Parse(redirect)
 	if r.ResponseType == "" {
 		return NewRedirectErr(oauth.NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), u)
 	}
 
 	if r.ResponseType == oauth.ResponseTypeCode {
-		code, err := authCodeService.New(client, &r)
-		if err != nil {
-			return NewRedirectErr(oauth.NewErr(err, "error occurred code generate"), u)
+		s := r.SplitScope()
+		if len(s) == 0 {
+			s = client.Scopes
 		}
-		err = chaining([]Enhancer{authorizationCodeFlow})(code, u)
-		if err != nil {
-			return NewRedirectErr(oauth.NewErr(err, "error occurred response enhancer"), u)
-		}
-		c.Redirect(http.StatusMovedPermanently, u.String())
+		c.HTML(http.StatusOK, "approval.html", gin.H{
+			"scopes": s,
+			"client": client.Name,
+		})
 	}
 	return nil
 }

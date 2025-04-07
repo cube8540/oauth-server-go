@@ -3,6 +3,7 @@ package service
 import (
 	"oauth-server-go/crypto"
 	"oauth-server-go/user"
+	"oauth-server-go/user/entity"
 	"oauth-server-go/user/repository"
 )
 
@@ -15,25 +16,19 @@ func init() {
 }
 
 type AuthService struct {
-	Login func(r *LoginRequest) (*LoginDetail, error)
+	Login func(r *LoginRequest) (*entity.Account, error)
 }
 
 func NewAuthService() *AuthService {
 	return &AuthService{Login: login}
 }
 
-type (
-	LoginDetail struct {
-		Username string `json:"username"`
-	}
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
 
-	LoginRequest struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-)
-
-func login(r *LoginRequest) (*LoginDetail, error) {
+func login(r *LoginRequest) (*entity.Account, error) {
 	if r.Username == "" || r.Password == "" {
 		return nil, user.ErrRequireParamsMissing
 	}
@@ -51,6 +46,5 @@ func login(r *LoginRequest) (*LoginDetail, error) {
 		return nil, user.ErrAccountLocked
 	}
 
-	login := LoginDetail{Username: account.Username}
-	return &login, nil
+	return account, nil
 }

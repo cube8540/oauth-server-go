@@ -1,13 +1,14 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/goccy/go-json"
 	"net/http"
 	"oauth-server-go/protocol"
+	"oauth-server-go/security"
 	"oauth-server-go/user"
 	"oauth-server-go/user/service"
 )
@@ -25,18 +26,19 @@ func Routing(route *gin.Engine) {
 }
 
 func login(c *gin.Context) error {
-	session := sessions.Default(c)
 	var req service.LoginRequest
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		return err
 	}
-	login, err := authService.Login(&req)
+	account, err := authService.Login(&req)
 	if err != nil {
 		return err
 	}
-	serial, _ := json.Marshal(login)
-	session.Set("login", serial)
-	_ = session.Save()
+	l := &security.Login{Username: account.Username}
+	serial, _ := json.Marshal(l)
+	s := sessions.Default(c)
+	s.Set(security.ShareKeyLogin, serial)
+	_ = s.Save()
 	c.JSON(http.StatusOK, protocol.NewOK(protocol.MsgOK))
 	return nil
 }

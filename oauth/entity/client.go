@@ -11,6 +11,7 @@ import (
 type Client struct {
 	ID           uint
 	ClientID     string
+	Name         string `gorm:"column:client_name"`
 	Secret       string
 	OwnerID      string
 	Redirects    sql.Strings `gorm:"column:redirect_uris"`

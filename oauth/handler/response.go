@@ -9,9 +9,7 @@ import (
 
 type Enhancer func(src any, redirect *url.URL) error
 
-type EnhancerChain []Enhancer
-
-func chaining(e EnhancerChain) Enhancer {
+func chaining(e ...Enhancer) Enhancer {
 	return func(src any, redirect *url.URL) error {
 		u := redirect
 		for _, h := range e {

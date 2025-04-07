@@ -105,7 +105,10 @@ func initRedisSessionStore() {
 	}
 
 	store.Options(sessions.Options{
-		MaxAge: sessionOpt.MaxAgeSec,
+		Path:     "/",
+		MaxAge:   sessionOpt.MaxAgeSec,
+		HttpOnly: true,
+		Secure:   true,
 	})
 	redisSessionStore = store
 }

@@ -5,12 +5,18 @@ import (
 	"github.com/gin-gonic/gin"
 	"oauth-server-go/conf"
 	oauthhandler "oauth-server-go/oauth/handler"
+	"oauth-server-go/security"
 	userhandler "oauth-server-go/user/handler"
 )
 
 func main() {
 	route := gin.Default()
-	route.Use(sessions.Sessions("g_session_id", conf.GetRedisSessionStore()))
+	store := conf.GetRedisSessionStore()
+
+	route.LoadHTMLGlob("templates/*")
+
+	route.Use(sessions.Sessions("g_session_id", store))
+	route.Use(security.LoginContext())
 
 	userhandler.Routing(route)
 	oauthhandler.Routing(route)
