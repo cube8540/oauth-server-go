@@ -22,7 +22,12 @@ func NewAuthCodeService() *AuthCodeService {
 }
 
 func newAuthCode(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error) {
-	code, err := entity.NewAuthCode(c, codeGenerator, r)
+	scopes, err := c.GetScopes(r.SplitScope())
+	if err != nil {
+		return nil, err
+	}
+	code := entity.NewAuthCode(codeGenerator, scopes)
+	err = code.Set(r)
 	if err != nil {
 		return nil, err
 	}

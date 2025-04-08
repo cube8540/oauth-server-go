@@ -14,11 +14,15 @@ import (
 
 const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
-var clientService *service.ClientService
-var authCodeService *service.AuthCodeService
+var (
+	clientService   *service.ClientService
+	scopeService    *service.ScopeService
+	authCodeService *service.AuthCodeService
+)
 
 func init() {
 	clientService = service.NewClientService()
+	scopeService = service.NewScopeService()
 	authCodeService = service.NewAuthCodeService()
 }
 
@@ -59,13 +63,12 @@ func authorize(c *gin.Context) error {
 		return NewRedirectErr(oauth.NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), u)
 	}
 
-	s := r.SplitScope()
-	if len(s) == 0 {
-		s = client.Scopes
+	scopes, err := client.GetScopes(r.SplitScope())
+	if err != nil {
+		return NewRedirectErr(oauth.NewErr(err, "scope cannot grant"), u)
 	}
-
 	c.HTML(http.StatusOK, "approval.html", gin.H{
-		"scopes": s,
+		"scopes": scopes,
 		"client": client.Name,
 	})
 	return storeOriginRequest(c, &r)

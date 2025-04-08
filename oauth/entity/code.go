@@ -3,7 +3,6 @@ package entity
 import (
 	"github.com/google/uuid"
 	"oauth-server-go/oauth"
-	"oauth-server-go/sql"
 	"time"
 )
 
@@ -23,45 +22,38 @@ type AuthorizationCode struct {
 	Username            string
 	State               string
 	Redirect            string
-	Scopes              sql.Strings
+	Scopes              []Scope `gorm:"many2many:users.oauth2_code_scopes"`
 	CodeChallenge       oauth.CodeChallenge
 	CodeChallengeMethod oauth.CodeChallengeMethod
 	IssuedAt, ExpiredAt time.Time
 }
 
-func NewAuthCode(c *Client, g AuthCodeGenerator, r *oauth.AuthorizationRequest) (*AuthorizationCode, error) {
-	if c == nil {
-		return nil, oauth.ErrInvalidClient
-	}
+func NewAuthCode(g AuthCodeGenerator, scopes []Scope) *AuthorizationCode {
 	now := time.Now()
-	scopes := r.SplitScope()
-	if len(scopes) == 0 {
-		scopes = c.Scopes
-	}
-	if !c.HasAllScopes(scopes) {
-		return nil, oauth.ErrInvalidScope
-	}
-	if r.Username == "" {
-		return nil, oauth.ErrInvalidRequest
-	}
 	code := &AuthorizationCode{
-		Value:               g(),
-		ClientID:            c.ID,
-		Username:            r.Username,
-		State:               r.State,
-		Redirect:            r.Redirect,
-		Scopes:              scopes,
-		CodeChallenge:       r.CodeChallenge,
-		CodeChallengeMethod: r.CodeChallengeMethod,
-		IssuedAt:            now,
-		ExpiredAt:           now.Add(codeExpiresMinute),
+		Value:     g(),
+		Scopes:    scopes,
+		IssuedAt:  now,
+		ExpiredAt: now.Add(codeExpiresMinute),
 	}
-	if code.CodeChallenge != "" && code.CodeChallengeMethod == "" {
-		code.CodeChallengeMethod = oauth.CodeChallengePlan
-	} else if code.CodeChallenge == "" && code.CodeChallengeMethod != "" {
-		return nil, oauth.ErrInvalidRequest
+	return code
+}
+
+func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
+	if r.Username == "" {
+		return oauth.ErrInvalidRequest
 	}
-	return code, nil
+	c.Username = r.Username
+	c.State = r.State
+	c.Redirect = r.Redirect
+	c.CodeChallenge = r.CodeChallenge
+	c.CodeChallengeMethod = r.CodeChallengeMethod
+	if c.CodeChallenge != "" && c.CodeChallengeMethod == "" {
+		c.CodeChallengeMethod = oauth.CodeChallengePlan
+	} else if c.CodeChallenge == "" && c.CodeChallengeMethod != "" {
+		return oauth.ErrInvalidRequest
+	}
+	return nil
 }
 
 func (c AuthorizationCode) TableName() string {

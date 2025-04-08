@@ -15,8 +15,8 @@ type Client struct {
 	Secret       string
 	OwnerID      string
 	Redirects    sql.Strings `gorm:"column:redirect_uris"`
-	Scopes       sql.Strings
-	RegisteredAt time.Time `gorm:"column:reg_dt"`
+	Scopes       []Scope     `gorm:"many2many:users.oauth2_client_scopes"`
+	RegisteredAt time.Time   `gorm:"column:reg_dt"`
 }
 
 func (c Client) RedirectURL(url string) (string, error) {
@@ -39,11 +39,34 @@ func (c Client) RedirectURL(url string) (string, error) {
 
 func (c Client) HasAllScopes(s []string) bool {
 	for _, e := range s {
-		if !slices.Contains(c.Scopes, e) {
+		ok := slices.ContainsFunc(c.Scopes, func(s Scope) bool {
+			return s.Code == e
+		})
+		if !ok {
 			return false
 		}
 	}
 	return true
+}
+
+func (c Client) GetScopes(s []string) ([]Scope, error) {
+	if len(s) == 0 {
+		return c.Scopes, nil
+	}
+	if len(s) > len(c.Scopes) {
+		return nil, oauth.ErrInvalidScope
+	}
+	var scopes []Scope
+	for _, e := range s {
+		idx := slices.IndexFunc(c.Scopes, func(cs Scope) bool {
+			return cs.Code == e
+		})
+		if idx < 0 {
+			return nil, oauth.ErrInvalidScope
+		}
+		scopes = append(scopes, c.Scopes[idx])
+	}
+	return scopes, nil
 }
 
 func (c Client) ContainsRedirect(url string) bool {

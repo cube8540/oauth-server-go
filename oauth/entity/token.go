@@ -2,7 +2,6 @@ package entity
 
 import (
 	"github.com/google/uuid"
-	"oauth-server-go/sql"
 	"time"
 )
 
@@ -29,7 +28,7 @@ type Token struct {
 	ClientID            uint
 	Client              Client
 	Username            string
-	Scopes              sql.Strings
+	Scopes              []Scope `gorm:"many2many:users.oauth2_token_scopes"`
 	IssuedAt, ExpiredAt time.Time
 }
 

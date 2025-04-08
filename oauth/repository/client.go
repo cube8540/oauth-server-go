@@ -1,8 +1,6 @@
 package repository
 
 import (
-	"errors"
-	"gorm.io/gorm"
 	"oauth-server-go/conf"
 	"oauth-server-go/oauth/entity"
 )
@@ -19,8 +17,8 @@ func NewClientRepository() *ClientRepository {
 
 func findByClientID(id string) *entity.Client {
 	var client entity.Client
-	err := conf.GetDB().Where(&entity.Client{ClientID: id}).First(&client).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	err := conf.GetDB().Preload("Scopes").Where(&entity.Client{ClientID: id}).First(&client).Error
+	if err != nil {
 		return nil
 	}
 	return &client
