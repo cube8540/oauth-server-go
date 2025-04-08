@@ -20,7 +20,13 @@ func init() {
 func Routing(route *gin.Engine) {
 	auth := route.Group("/auth")
 
+	auth.GET("/login", protocol.NewHTTPHandler(errHandler, loginPage))
 	auth.POST("/login", protocol.NewHTTPHandler(errHandler, login))
+}
+
+func loginPage(c *gin.Context) error {
+	c.HTML(http.StatusOK, "login.html", gin.H{})
+	return nil
 }
 
 func login(c *gin.Context) error {

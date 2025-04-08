@@ -28,11 +28,10 @@ type AuthorizationCode struct {
 	IssuedAt, ExpiredAt time.Time
 }
 
-func NewAuthCode(g AuthCodeGenerator, scopes []Scope) *AuthorizationCode {
+func NewAuthCode(g AuthCodeGenerator) *AuthorizationCode {
 	now := time.Now()
 	code := &AuthorizationCode{
 		Value:     g(),
-		Scopes:    scopes,
 		IssuedAt:  now,
 		ExpiredAt: now.Add(codeExpiresMinute),
 	}

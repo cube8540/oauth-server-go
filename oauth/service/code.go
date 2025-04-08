@@ -26,7 +26,9 @@ func newAuthCode(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.Autho
 	if err != nil {
 		return nil, err
 	}
-	code := entity.NewAuthCode(codeGenerator, scopes)
+	code := entity.NewAuthCode(codeGenerator)
+	code.ClientID = c.ID
+	code.Scopes = scopes
 	err = code.Set(r)
 	if err != nil {
 		return nil, err
