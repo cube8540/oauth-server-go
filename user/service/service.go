@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+	"gorm.io/gorm"
 	"oauth-server-go/crypto"
 	"oauth-server-go/user"
 	"oauth-server-go/user/entity"
@@ -33,9 +35,11 @@ func login(r *LoginRequest) (*entity.Account, error) {
 		return nil, user.ErrRequireParamsMissing
 	}
 
-	account := accountRepo.FindByUsername(r.Username)
-	if account == nil {
+	account, err := accountRepo.FindByUsername(r.Username)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, user.ErrAccountNotFound
+	} else if err != nil {
+		return nil, err
 	}
 
 	if cmp, err := hasher.Compare(account.Password, r.Password); err != nil {

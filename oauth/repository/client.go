@@ -6,7 +6,7 @@ import (
 )
 
 type ClientRepository struct {
-	FindByClientID func(id string) *entity.Client
+	FindByClientID func(id string) (*entity.Client, error)
 }
 
 func NewClientRepository() *ClientRepository {
@@ -15,11 +15,11 @@ func NewClientRepository() *ClientRepository {
 	}
 }
 
-func findByClientID(id string) *entity.Client {
+func findByClientID(id string) (*entity.Client, error) {
 	var client entity.Client
 	err := conf.GetDB().Preload("Scopes").Where(&entity.Client{ClientID: id}).First(&client).Error
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &client
+	return &client, nil
 }

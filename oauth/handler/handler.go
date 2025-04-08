@@ -49,7 +49,10 @@ func authorize(c *gin.Context) error {
 	if r.ClientID == "" {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "client id is required")
 	}
-	client := clientService.GetClient(r.ClientID)
+	client, err := clientService.GetClient(r.ClientID)
+	if err != nil {
+		return oauth.NewErr(err, "unknown error")
+	}
 	if client == nil {
 		return oauth.NewErr(oauth.ErrUnauthorizedClient, "client cannot find")
 	}

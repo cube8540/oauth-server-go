@@ -6,15 +6,18 @@ import (
 )
 
 type ScopeRepository struct {
-	FindByCode func(c ...string) []entity.Scope
+	FindByCode func(c ...string) ([]entity.Scope, error)
 }
 
 func NewScopeRepository() *ScopeRepository {
 	return &ScopeRepository{FindByCode: findByCode}
 }
 
-func findByCode(c ...string) []entity.Scope {
+func findByCode(c ...string) ([]entity.Scope, error) {
 	var scopes []entity.Scope
-	conf.GetDB().Where("code in ?", c).Find(&scopes)
-	return scopes
+	err := conf.GetDB().Where("code in ?", c).Find(&scopes).Error
+	if err != nil {
+		return nil, err
+	}
+	return scopes, err
 }

@@ -5,7 +5,7 @@ import (
 )
 
 type ClientService struct {
-	GetClient func(id string) *entity.Client
+	GetClient func(id string) (*entity.Client, error)
 }
 
 func NewClientService() *ClientService {
@@ -14,6 +14,6 @@ func NewClientService() *ClientService {
 	}
 }
 
-func getClient(id string) *entity.Client {
+func getClient(id string) (*entity.Client, error) {
 	return clientRepository.FindByClientID(id)
 }
