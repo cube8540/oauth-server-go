@@ -47,30 +47,30 @@ func authorize(c *gin.Context) error {
 	if err := c.ShouldBindQuery(&r); err != nil {
 		return err
 	}
-
 	if r.ClientID == "" {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "client id is required")
 	}
+
 	client, err := clientService.GetClient(r.ClientID)
 	if err != nil {
-		return oauth.NewErr(err, "unknown error")
-	}
-	if client == nil {
-		return oauth.NewErr(oauth.ErrUnauthorizedClient, "client is not found")
+		return err
 	}
 
 	redirect, err := client.RedirectURL(r.Redirect)
 	if err != nil {
 		return err
 	}
-	u, _ := url.Parse(redirect)
+	redirectTo, _ := url.Parse(redirect)
 	if r.ResponseType == "" {
-		return NewRedirectErr(oauth.NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), u)
+		return NewRedirectErrMsg(oauth.ErrInvalidRequest, "require parameter is missing", redirectTo)
+	}
+	if r.ResponseType != oauth.ResponseTypeCode && r.ResponseType != oauth.ResponseTypeToken {
+		return NewRedirectErrMsg(oauth.ErrUnsupportedGrantType, "unsupported grant type", redirectTo)
 	}
 
 	scopes, err := client.GetScopes(r.SplitScope())
 	if err != nil {
-		return NewRedirectErr(oauth.NewErr(err, "scope cannot grant"), u)
+		return NewRedirectErr(err, redirectTo)
 	}
 	c.HTML(http.StatusOK, "approval.html", gin.H{
 		"scopes": scopes,
@@ -91,37 +91,34 @@ func approval(c *gin.Context) error {
 	if err != nil {
 		return oauth.NewErr(err, "unknown error")
 	}
-	if client == nil {
-		return oauth.NewErr(oauth.ErrUnauthorizedClient, "client is not found")
-	}
 
 	redirect, _ := client.RedirectURL(origin.Redirect)
-	u, _ := url.Parse(redirect)
+	redirectTo, _ := url.Parse(redirect)
 
-	rs := c.PostFormArray("scope")
-	if len(rs) == 0 {
-		return NewRedirectErr(oauth.NewErr(oauth.ErrInvalidScope, "scope not selected"), u)
-	}
 	loginValue, _ := c.Get(security.SessionKeyLogin)
 	if login, ok := loginValue.(*security.SessionLogin); ok {
 		origin.Username = login.Username
 	}
+
+	rs := c.PostFormArray("scope")
+	if len(rs) == 0 {
+		return NewRedirectErrMsg(oauth.ErrInvalidScope, "scope is not selected", redirectTo)
+	}
 	origin.Scopes = strings.Join(rs, " ")
 
-	var enhancer Enhancer
 	var src any
 	if origin.ResponseType == oauth.ResponseTypeCode {
-		src, err = authCodeService.New(client, origin)
-		if err != nil {
-			return NewRedirectErr(oauth.NewErr(err, "error occurred during code generate"), u)
+		if src, err = authCodeService.New(client, origin); err != nil {
+			return NewRedirectErr(err, redirectTo)
 		}
-		enhancer = chaining(authorizationCodeFlow)
 	}
-	err = enhancer(src, u)
-	if err != nil {
-		return NewRedirectErr(oauth.NewErr(err, "error occurred during code generate"), u)
+
+	enhancer := chaining(authorizationCodeFlow)
+	if err = enhancer(origin, src, redirectTo); err != nil {
+		return NewRedirectErr(err, redirectTo)
 	}
-	c.Redirect(http.StatusMovedPermanently, u.String())
+
+	c.Redirect(http.StatusMovedPermanently, redirectTo.String())
 	return clearOriginRequest(c)
 }
 

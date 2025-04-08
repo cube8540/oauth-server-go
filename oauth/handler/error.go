@@ -10,13 +10,20 @@ import (
 )
 
 type RedirectErr struct {
-	Err      *oauth.Err
+	Err      error
 	Redirect *url.URL
 }
 
-func NewRedirectErr(err *oauth.Err, u *url.URL) error {
+func NewRedirectErr(err error, u *url.URL) error {
 	return &RedirectErr{
 		Err:      err,
+		Redirect: u,
+	}
+}
+
+func NewRedirectErrMsg(err error, m string, u *url.URL) error {
+	return &RedirectErr{
+		Err:      oauth.NewErr(err, m),
 		Redirect: u,
 	}
 }
@@ -27,10 +34,6 @@ func (e *RedirectErr) Unwrap() error {
 
 func (e *RedirectErr) Error() string {
 	return e.Err.Error()
-}
-
-func (e RedirectErr) Message() string {
-	return e.Err.Message
 }
 
 func errHandler(c *gin.Context, err error) {

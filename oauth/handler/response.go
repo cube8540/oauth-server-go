@@ -1,19 +1,18 @@
 package handler
 
 import (
-	"log"
 	"net/url"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 )
 
-type Enhancer func(src any, redirect *url.URL) error
+type Enhancer func(r *oauth.AuthorizationRequest, src any, redirect *url.URL) error
 
 func chaining(e ...Enhancer) Enhancer {
-	return func(src any, redirect *url.URL) error {
+	return func(r *oauth.AuthorizationRequest, src any, redirect *url.URL) error {
 		u := redirect
 		for _, h := range e {
-			err := h(src, u)
+			err := h(r, src, u)
 			if err != nil {
 				return err
 			}
@@ -22,19 +21,17 @@ func chaining(e ...Enhancer) Enhancer {
 	}
 }
 
-func authorizationCodeFlow(src any, redirect *url.URL) error {
-	code, ok := src.(*entity.AuthorizationCode)
-	if !ok {
-		log.Printf("src cannot casting AuthorizationCode")
-		return oauth.ErrServerError
+func authorizationCodeFlow(r *oauth.AuthorizationRequest, src any, redirect *url.URL) error {
+	if r.ResponseType != oauth.ResponseTypeCode {
+		return nil
 	}
-
-	q := redirect.Query()
-	q.Set("code", code.Value)
-	if code.State != "" {
-		q.Set("state", code.State)
+	if code, ok := src.(*entity.AuthorizationCode); ok {
+		q := redirect.Query()
+		q.Set("code", code.Value)
+		if code.State != "" {
+			q.Set("state", code.State)
+		}
+		redirect.RawQuery = q.Encode()
 	}
-
-	redirect.RawQuery = q.Encode()
 	return nil
 }
