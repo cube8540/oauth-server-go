@@ -33,7 +33,7 @@ func (e RedirectErr) Message() string {
 	return e.Err.Message
 }
 
-func errHandler(err error, c *gin.Context) {
+func errHandler(c *gin.Context, err error) {
 	m := parse(err)
 	var e *RedirectErr
 	if ok := errors.As(err, &e); ok {
@@ -59,6 +59,8 @@ func parse(err error) oauth.ErrResponse {
 func status(err error) int {
 	if errors.Is(err, oauth.ErrInvalidRequest) {
 		return http.StatusBadRequest
+	} else if errors.Is(err, oauth.ErrAccessDenied) {
+		return http.StatusUnauthorized
 	}
 	return http.StatusInternalServerError
 }

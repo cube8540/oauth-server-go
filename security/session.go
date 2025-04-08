@@ -6,21 +6,45 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const ShareKeyLogin = "login"
+const SessionKeyLogin = "sessions/login"
 
-type Login struct {
+type SessionLogin struct {
 	Username string
 }
 
-func LoginContext() gin.HandlerFunc {
+func StoreLogin(c *gin.Context, sl *SessionLogin) error {
+	serial, err := json.Marshal(sl)
+	if err != nil {
+		return err
+	}
+	s := sessions.Default(c)
+	s.Set(SessionKeyLogin, serial)
+	return s.Save()
+}
+
+func Authentication() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)
-		v := session.Get(ShareKeyLogin)
+		v := session.Get(SessionKeyLogin)
 		if serial, ok := v.([]byte); ok {
-			var login Login
+			var login SessionLogin
 			_ = json.Unmarshal(serial, &login)
-			c.Set(ShareKeyLogin, &login)
+			c.Set(SessionKeyLogin, &login)
 		}
 		c.Next()
+	}
+}
+
+type AccessDeniedHandler func(c *gin.Context)
+
+func Authenticated(h AccessDeniedHandler) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		_, exists := c.Get(SessionKeyLogin)
+		if !exists {
+			h(c)
+			c.Abort()
+		} else {
+			c.Next()
+		}
 	}
 }

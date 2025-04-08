@@ -44,13 +44,15 @@ type (
 
 var config Configuration
 
-var db *gorm.DB
-var redisSessionStore redis.Store
+var (
+	db    *gorm.DB
+	store sessions.Store
+)
 
 func init() {
 	initConfig()
 	initDB()
-	initRedisSessionStore()
+	initSessionStore()
 }
 
 func initConfig() {
@@ -94,23 +96,23 @@ func initDB() {
 	db = conn
 }
 
-func initRedisSessionStore() {
+func initSessionStore() {
 	redisOpt := config.Redis
 	sessionOpt := config.Session
 
 	address := redisOpt.Host + ":" + strconv.Itoa(redisOpt.Port)
-	store, err := redis.NewStore(redisOpt.MaxIdleSize, "tcp", address, "", []byte(sessionOpt.Secret))
+	s, err := redis.NewStore(redisOpt.MaxIdleSize, "tcp", address, "", []byte(sessionOpt.Secret))
 	if err != nil {
 		panic(err)
 	}
 
-	store.Options(sessions.Options{
+	s.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   sessionOpt.MaxAgeSec,
 		HttpOnly: true,
 		Secure:   true,
 	})
-	redisSessionStore = store
+	store = s
 }
 
 func GetDB() *gorm.DB {
@@ -121,6 +123,6 @@ func GetServerPort() string {
 	return config.Port
 }
 
-func GetRedisSessionStore() redis.Store {
-	return redisSessionStore
+func GetStore() sessions.Store {
+	return store
 }

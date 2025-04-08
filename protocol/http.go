@@ -34,15 +34,16 @@ func NewOK(data any) OK {
 
 type RequestHandler func(c *gin.Context) error
 
-type ErrHandler func(err error, c *gin.Context)
+type ErrHandler func(c *gin.Context, err error)
 
-type HTTPHandler func(h RequestHandler, e ErrHandler) gin.HandlerFunc
-
-func NewHTTPHandler(h RequestHandler, e ErrHandler) gin.HandlerFunc {
+func NewHTTPHandler(e ErrHandler, h ...RequestHandler) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		err := h(c)
-		if err != nil {
-			e(err, c)
+		for _, handler := range h {
+			err := handler(c)
+			if err != nil {
+				e(c, err)
+				return
+			}
 		}
 	}
 }

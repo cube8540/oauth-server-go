@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
@@ -9,6 +11,8 @@ import (
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 )
+
+const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
 var clientService *service.ClientService
 var authCodeService *service.AuthCodeService
@@ -19,14 +23,17 @@ func init() {
 }
 
 func Routing(route *gin.Engine) {
-	auth := route.Group("/oauth")
+	oauthPath := route.Group("/oauth")
+	oauthPath.Use(func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache")
+	})
 
-	auth.Use(noCache)
-	auth.GET("/authorize", protocol.NewHTTPHandler(authorize, errHandler))
-}
+	authPath := oauthPath.Group("/authorize")
+	authPath.Use(security.Authenticated(func(c *gin.Context) {
+		errHandler(c, oauth.ErrAccessDenied)
+	}))
 
-func noCache(c *gin.Context) {
-	c.Header("Cache-Control", "no-cache")
+	authPath.GET("", protocol.NewHTTPHandler(errHandler, authorize))
 }
 
 func authorize(c *gin.Context) error {
@@ -43,11 +50,6 @@ func authorize(c *gin.Context) error {
 		return oauth.NewErr(oauth.ErrUnauthorizedClient, "client cannot find")
 	}
 
-	_, exists := c.Get(security.ShareKeyLogin)
-	if !exists {
-		return oauth.NewErr(oauth.ErrInvalidRequest, "login is required")
-	}
-
 	redirect, err := client.RedirectURL(r.Redirect)
 	if err != nil {
 		return err
@@ -57,15 +59,24 @@ func authorize(c *gin.Context) error {
 		return NewRedirectErr(oauth.NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), u)
 	}
 
-	if r.ResponseType == oauth.ResponseTypeCode {
-		s := r.SplitScope()
-		if len(s) == 0 {
-			s = client.Scopes
-		}
-		c.HTML(http.StatusOK, "approval.html", gin.H{
-			"scopes": s,
-			"client": client.Name,
-		})
+	s := r.SplitScope()
+	if len(s) == 0 {
+		s = client.Scopes
 	}
-	return nil
+
+	c.HTML(http.StatusOK, "approval.html", gin.H{
+		"scopes": s,
+		"client": client.Name,
+	})
+	return storeOriginRequest(c, &r)
+}
+
+func storeOriginRequest(c *gin.Context, r *oauth.AuthorizationRequest) error {
+	serial, err := json.Marshal(&r)
+	if err != nil {
+		return err
+	}
+	s := sessions.Default(c)
+	s.Set(sessionKeyOriginAuthRequest, serial)
+	return s.Save()
 }

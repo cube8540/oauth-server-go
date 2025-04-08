@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"oauth-server-go/protocol"
@@ -22,7 +20,7 @@ func init() {
 func Routing(route *gin.Engine) {
 	auth := route.Group("/auth")
 
-	auth.POST("/login", protocol.NewHTTPHandler(login, errHandler))
+	auth.POST("/login", protocol.NewHTTPHandler(errHandler, login))
 }
 
 func login(c *gin.Context) error {
@@ -34,16 +32,16 @@ func login(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	l := &security.Login{Username: account.Username}
-	serial, _ := json.Marshal(l)
-	s := sessions.Default(c)
-	s.Set(security.ShareKeyLogin, serial)
-	_ = s.Save()
+	sl := &security.SessionLogin{Username: account.Username}
+	err = security.StoreLogin(c, sl)
+	if err != nil {
+		return err
+	}
 	c.JSON(http.StatusOK, protocol.NewOK(protocol.MsgOK))
 	return nil
 }
 
-func errHandler(err error, c *gin.Context) {
+func errHandler(c *gin.Context, err error) {
 	if errors.Is(err, user.ErrRequireParamsMissing) {
 		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadRequest, "require parameters are missing"))
 	} else if errors.Is(err, user.ErrAccountNotFound) || errors.Is(err, user.ErrPasswordNotMatch) {

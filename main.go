@@ -11,12 +11,12 @@ import (
 
 func main() {
 	route := gin.Default()
-	store := conf.GetRedisSessionStore()
+	store := conf.GetStore()
 
 	route.LoadHTMLGlob("templates/*")
 
 	route.Use(sessions.Sessions("g_session_id", store))
-	route.Use(security.LoginContext())
+	route.Use(security.Authentication())
 
 	userhandler.Routing(route)
 	oauthhandler.Routing(route)
