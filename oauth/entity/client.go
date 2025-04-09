@@ -11,7 +11,8 @@ import (
 type Client struct {
 	ID           uint
 	ClientID     string
-	Name         string `gorm:"column:client_name"`
+	Name         string           `gorm:"column:client_name"`
+	Type         oauth.ClientType `gorm:"column:client_type"`
 	Secret       string
 	OwnerID      string
 	Redirects    sql.Strings `gorm:"column:redirect_uris"`
@@ -19,7 +20,7 @@ type Client struct {
 	RegisteredAt time.Time   `gorm:"column:reg_dt"`
 }
 
-func (c Client) RedirectURL(url string) (string, error) {
+func (c *Client) RedirectURL(url string) (string, error) {
 	if len(c.Redirects) == 1 {
 		u := c.Redirects[0]
 		if url != "" && u != url {
@@ -37,7 +38,7 @@ func (c Client) RedirectURL(url string) (string, error) {
 	return c.Redirects[i], nil
 }
 
-func (c Client) HasAllScopes(s []string) bool {
+func (c *Client) HasAllScopes(s []string) bool {
 	for _, e := range s {
 		ok := slices.ContainsFunc(c.Scopes, func(s Scope) bool {
 			return s.Code == e
@@ -49,7 +50,7 @@ func (c Client) HasAllScopes(s []string) bool {
 	return true
 }
 
-func (c Client) GetScopes(s []string) ([]Scope, error) {
+func (c *Client) GetScopes(s []string) ([]Scope, error) {
 	if len(s) == 0 {
 		return c.Scopes, nil
 	}
@@ -69,10 +70,10 @@ func (c Client) GetScopes(s []string) ([]Scope, error) {
 	return scopes, nil
 }
 
-func (c Client) ContainsRedirect(url string) bool {
+func (c *Client) ContainsRedirect(url string) bool {
 	return slices.Contains(c.Redirects, url)
 }
 
-func (c Client) TableName() string {
+func (c *Client) TableName() string {
 	return "users.oauth2_client"
 }

@@ -42,6 +42,13 @@ const (
 	ResponseTypeToken ResponseType = "token"
 )
 
+type ClientType string
+
+const (
+	ClientTypePublic       ClientType = "public"
+	ClientTypeConfidential ClientType = "confidential"
+)
+
 type ErrResponse struct {
 	Code    string `json:"error"`
 	Message string `json:"error_description"`
@@ -86,4 +93,28 @@ func (r AuthorizationRequest) SplitScope() []string {
 	}
 	s = strings.Split(r.Scopes, " ")
 	return s
+}
+
+type TokenType string
+
+const (
+	TokenTypeBearer TokenType = "bearer"
+	TokenTypeMac    TokenType = "mac"
+)
+
+type TokenRequest struct {
+	GrantType    GrantType    `form:"grant_type"`
+	Code         string       `form:"code"`
+	Redirect     string       `form:"redirect_uri"`
+	ClientID     string       `form:"client_id"`
+	Secret       string       `form:"secret"`
+	CodeVerifier CodeVerifier `form:"code_verifier"`
+}
+
+type TokenResponse struct {
+	Token     string    `json:"access_token"`
+	Type      TokenType `json:"token_type"`
+	ExpiresIn uint      `json:"expires_in"`
+	Refresh   string    `json:"refresh_token"`
+	Scope     string    `json:"scope"`
 }

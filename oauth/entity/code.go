@@ -1,6 +1,8 @@
 package entity
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"github.com/google/uuid"
 	"oauth-server-go/oauth"
 	"time"
@@ -53,6 +55,27 @@ func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "code challenge is required")
 	}
 	return nil
+}
+
+func (c *AuthorizationCode) Verifier(v oauth.CodeVerifier) (bool, error) {
+	if c.CodeChallenge != "" {
+		if c.CodeChallengeMethod == oauth.CodeChallengeS256 {
+			hash := sha256.New()
+			_, err := hash.Write([]byte(v))
+			if err != nil {
+				return false, err
+			}
+			encoded := hex.EncodeToString(hash.Sum(nil))
+			return string(c.CodeChallenge) == encoded, nil
+		} else if c.CodeChallengeMethod == oauth.CodeChallengePlan {
+			return string(c.CodeChallenge) == string(v), nil
+		}
+	}
+	return true, nil
+}
+
+func (c *AuthorizationCode) Available() bool {
+	return c.ExpiredAt.After(time.Now())
 }
 
 func (c AuthorizationCode) TableName() string {

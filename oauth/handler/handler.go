@@ -8,24 +8,26 @@ import (
 	"net/http"
 	"net/url"
 	"oauth-server-go/oauth"
+	"oauth-server-go/oauth/entity"
 	"oauth-server-go/oauth/service"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	"strings"
+	"time"
 )
 
 const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
 var (
-	clientService   *service.ClientService
-	scopeService    *service.ScopeService
-	authCodeService *service.AuthCodeService
+	clientService     *service.ClientService
+	authCodeService   *service.AuthCodeService
+	tokenIssueService *service.TokenIssueService
 )
 
 func init() {
 	clientService = service.NewClientService()
-	scopeService = service.NewScopeService()
 	authCodeService = service.NewAuthCodeService()
+	tokenIssueService = service.NewTokenIssueService()
 }
 
 func Routing(route *gin.Engine) {
@@ -38,9 +40,21 @@ func Routing(route *gin.Engine) {
 	authPath.Use(security.Authenticated(func(c *gin.Context) {
 		errHandle(c, oauth.NewErr(oauth.ErrAccessDenied, "resource owner login is required"))
 	}))
-
 	authPath.GET("", protocol.NewHTTPHandler(errHandle, authorize))
 	authPath.POST("", protocol.NewHTTPHandler(errHandle, approval))
+
+	tokenPath := oauthPath.Group("/token")
+	tokenPath.Use(clientBasicAuthManage(clientService.Auth, errHandle))
+	tokenPath.Use(clientFormAuthManage(clientService.Auth, errHandle))
+	tokenPath.Use(func(c *gin.Context) {
+		_, exists := c.Get(oauth2ShareKeyAuthClient)
+		if !exists {
+			errHandle(c, oauth.NewErr(oauth.ErrUnauthorizedClient, "client auth is required"))
+			c.Abort()
+		}
+		c.Next()
+	})
+	tokenPath.POST("", protocol.NewHTTPHandler(errHandle, tokenIssue))
 }
 
 func authorize(c *gin.Context) error {
@@ -124,6 +138,47 @@ func approval(c *gin.Context) error {
 
 	c.Redirect(http.StatusMovedPermanently, to.String())
 	return clearOriginRequest(s)
+}
+
+func tokenIssue(c *gin.Context) error {
+	var r oauth.TokenRequest
+	err := c.Bind(&r)
+	if err != nil {
+		return err
+	}
+
+	clientValue, _ := c.Get(oauth2ShareKeyAuthClient)
+	client, _ := clientValue.(*entity.Client)
+
+	var token *entity.Token
+	var refresh *entity.RefreshToken
+	switch r.GrantType {
+	case oauth.GrantTypeAuthorizationCode:
+		token, refresh, err = tokenIssueService.AuthorizationCodeFlow(client, &r)
+		if err != nil {
+			return err
+		}
+	default:
+		return oauth.NewErr(oauth.ErrUnsupportedGrantType, "unsupported")
+	}
+	if token == nil {
+		return oauth.NewErr(oauth.ErrServerError, "token cannot issued")
+	}
+	var scopes []string
+	for _, s := range token.Scopes {
+		scopes = append(scopes, s.Code)
+	}
+	res := oauth.TokenResponse{
+		Token:     token.Value,
+		Type:      oauth.TokenTypeBearer,
+		ExpiresIn: uint(token.ExpiredAt.Sub(time.Now()) / time.Second),
+		Scope:     strings.Join(scopes, " "),
+	}
+	if refresh != nil {
+		res.Refresh = refresh.Value
+	}
+	c.JSON(http.StatusOK, res)
+	return nil
 }
 
 func storeOriginRequest(s sessions.Session, r *oauth.AuthorizationRequest) error {

@@ -33,7 +33,7 @@ func NewErr(code, message string) error {
 
 func HttpStatus(c string) int {
 	switch c {
-	case ErrInvalidRequest:
+	case ErrInvalidRequest, ErrInvalidGrant:
 		return http.StatusBadRequest
 	case ErrAccessDenied:
 		return http.StatusUnauthorized

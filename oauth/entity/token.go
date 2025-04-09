@@ -36,6 +36,18 @@ func (t Token) TableName() string {
 	return "users.oauth2_access_token"
 }
 
+func NewToken(gen TokenIDGenerator, c *AuthorizationCode) *Token {
+	now := time.Now()
+	return &Token{
+		Value:     gen(),
+		ClientID:  c.ClientID,
+		Username:  c.Username,
+		Scopes:    c.Scopes,
+		IssuedAt:  now,
+		ExpiredAt: now.Add(tokenExpiresMinute),
+	}
+}
+
 // RefreshToken OAuth2 리프레시 토큰
 type RefreshToken struct {
 	ID                  uint

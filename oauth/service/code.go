@@ -38,3 +38,11 @@ func newAuthCode(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.Autho
 	}
 	return code, nil
 }
+
+func getCode(c string) (*entity.AuthorizationCode, error) {
+	return authCodeRepository.FindByCode(c)
+}
+
+func deleteCode(c *entity.AuthorizationCode) error {
+	return authCodeRepository.Delete(c)
+}
