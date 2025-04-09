@@ -54,7 +54,7 @@ func (c Client) GetScopes(s []string) ([]Scope, error) {
 		return c.Scopes, nil
 	}
 	if len(s) > len(c.Scopes) {
-		return nil, oauth.ErrInvalidScope
+		return nil, oauth.NewErr(oauth.ErrInvalidScope, "scope cannot grant")
 	}
 	var scopes []Scope
 	for _, e := range s {
@@ -62,7 +62,7 @@ func (c Client) GetScopes(s []string) ([]Scope, error) {
 			return cs.Code == e
 		})
 		if idx < 0 {
-			return nil, oauth.ErrInvalidScope
+			return nil, oauth.NewErr(oauth.ErrInvalidScope, "scope cannot grant")
 		}
 		scopes = append(scopes, c.Scopes[idx])
 	}

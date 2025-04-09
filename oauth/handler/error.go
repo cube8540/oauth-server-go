@@ -9,61 +9,75 @@ import (
 	"oauth-server-go/oauth"
 )
 
-type RedirectErr struct {
-	Err      error
-	Redirect *url.URL
+type requestFailed struct {
+	err     error
+	request *oauth.AuthorizationRequest
 }
 
-func NewRedirectErr(err error, u *url.URL) error {
-	return &RedirectErr{
-		Err:      err,
-		Redirect: u,
+func (r *requestFailed) Error() string {
+	return r.err.Error()
+}
+
+func (r *requestFailed) Unwrap() error {
+	return r.err
+}
+
+func wrap(err error, r *oauth.AuthorizationRequest) error {
+	return &requestFailed{
+		err:     err,
+		request: r,
 	}
 }
 
-func NewRedirectErrMsg(err error, m string, u *url.URL) error {
-	return &RedirectErr{
-		Err:      oauth.NewErr(err, m),
-		Redirect: u,
+type routeErr struct {
+	err error
+	to  *url.URL
+}
+
+func (e *routeErr) Error() string {
+	return e.err.Error()
+}
+
+func (e *routeErr) Unwrap() error {
+	return e.err
+}
+
+func route(err error, to *url.URL) error {
+	return &routeErr{
+		err: err,
+		to:  to,
 	}
 }
 
-func (e *RedirectErr) Unwrap() error {
-	return e.Err
-}
-
-func (e *RedirectErr) Error() string {
-	return e.Err.Error()
-}
-
-func errHandler(c *gin.Context, err error) {
-	m := parse(err)
-	var e *RedirectErr
-	if ok := errors.As(err, &e); ok {
-		q := e.Redirect.Query()
-		q.Set("error", m.Code)
-		q.Set("error_description", m.Message)
-		e.Redirect.RawQuery = q.Encode()
-		c.Redirect(http.StatusMovedPermanently, e.Redirect.String())
-	} else {
-		c.JSON(status(err), m)
-	}
+func routeWrap(err error, r *oauth.AuthorizationRequest, to *url.URL) error {
+	return route(wrap(err, r), to)
 }
 
 func parse(err error) oauth.ErrResponse {
-	var e *oauth.Err
-	if errors.As(err, &e) {
-		return oauth.NewErrResponse(e.Error(), e.Message)
+	var er oauth.ErrResponse
+
+	var oauthErr *oauth.Error
+	if errors.As(err, &oauthErr) {
+		er = oauth.NewErrResponse(oauthErr.Code, oauthErr.Message)
+	} else {
+		fmt.Printf("%v", err)
+		er = oauth.NewErrResponse(oauth.ErrServerError, "unknown error")
 	}
-	fmt.Printf("%v", err)
-	return oauth.NewErrResponse(oauth.ErrServerError.Error(), "internal server error")
+
+	var requestErr *requestFailed
+	if errors.As(err, &requestErr) {
+		er.State = requestErr.request.State
+	}
+	return er
 }
 
-func status(err error) int {
-	if errors.Is(err, oauth.ErrInvalidRequest) {
-		return http.StatusBadRequest
-	} else if errors.Is(err, oauth.ErrAccessDenied) {
-		return http.StatusUnauthorized
+func errHandle(c *gin.Context, err error) {
+	m := parse(err)
+
+	var routeError *routeErr
+	if errors.As(err, &routeError) {
+		c.Redirect(http.StatusMovedPermanently, m.QueryParam(routeError.to).String())
+	} else {
+		c.JSON(oauth.HttpStatus(m.Code), m)
 	}
-	return http.StatusInternalServerError
 }

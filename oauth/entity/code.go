@@ -40,7 +40,7 @@ func NewAuthCode(g AuthCodeGenerator) *AuthorizationCode {
 
 func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
 	if r.Username == "" {
-		return oauth.ErrInvalidRequest
+		return oauth.NewErr(oauth.ErrInvalidRequest, "username is required")
 	}
 	c.Username = r.Username
 	c.State = r.State
@@ -50,7 +50,7 @@ func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
 	if c.CodeChallenge != "" && c.CodeChallengeMethod == "" {
 		c.CodeChallengeMethod = oauth.CodeChallengePlan
 	} else if c.CodeChallenge == "" && c.CodeChallengeMethod != "" {
-		return oauth.ErrInvalidRequest
+		return oauth.NewErr(oauth.ErrInvalidRequest, "code challenge is required")
 	}
 	return nil
 }

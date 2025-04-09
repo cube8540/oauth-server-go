@@ -1,6 +1,9 @@
 package oauth
 
-import "strings"
+import (
+	"net/url"
+	"strings"
+)
 
 // CodeChallenge OAuth2 인증 코드 사용(교환) 때 인증에 사용될 코드(RFC 7636)
 type CodeChallenge string
@@ -42,6 +45,20 @@ const (
 type ErrResponse struct {
 	Code    string `json:"error"`
 	Message string `json:"error_description"`
+	State   string `json:"state"`
+	Uri     string `json:"error_uri"`
+}
+
+func (e ErrResponse) QueryParam(u *url.URL) *url.URL {
+	newUrl, _ := url.Parse(u.String())
+	q := newUrl.Query()
+	q.Set("error", e.Code)
+	q.Set("error_description", e.Message)
+	if e.State != "" {
+		q.Set("state", e.State)
+	}
+	newUrl.RawQuery = q.Encode()
+	return newUrl
 }
 
 func NewErrResponse(code, message string) ErrResponse {

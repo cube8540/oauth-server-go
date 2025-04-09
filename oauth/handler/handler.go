@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -35,11 +36,11 @@ func Routing(route *gin.Engine) {
 
 	authPath := oauthPath.Group("/authorize")
 	authPath.Use(security.Authenticated(func(c *gin.Context) {
-		errHandler(c, oauth.ErrAccessDenied)
+		errHandle(c, oauth.NewErr(oauth.ErrAccessDenied, "resource owner login is required"))
 	}))
 
-	authPath.GET("", protocol.NewHTTPHandler(errHandler, authorize))
-	authPath.POST("", protocol.NewHTTPHandler(errHandler, approval))
+	authPath.GET("", protocol.NewHTTPHandler(errHandle, authorize))
+	authPath.POST("", protocol.NewHTTPHandler(errHandle, approval))
 }
 
 func authorize(c *gin.Context) error {
@@ -60,27 +61,29 @@ func authorize(c *gin.Context) error {
 	if err != nil {
 		return err
 	}
-	redirectTo, _ := url.Parse(redirect)
+	to, _ := url.Parse(redirect)
 	if r.ResponseType == "" {
-		return NewRedirectErrMsg(oauth.ErrInvalidRequest, "require parameter is missing", redirectTo)
+		return routeWrap(oauth.NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), &r, to)
 	}
 	if r.ResponseType != oauth.ResponseTypeCode && r.ResponseType != oauth.ResponseTypeToken {
-		return NewRedirectErrMsg(oauth.ErrUnsupportedGrantType, "unsupported grant type", redirectTo)
+		return routeWrap(oauth.NewErr(oauth.ErrUnsupportedGrantType, "unsupported grant type"), &r, to)
 	}
 
 	scopes, err := client.GetScopes(r.SplitScope())
 	if err != nil {
-		return NewRedirectErr(err, redirectTo)
+		return routeWrap(err, &r, to)
 	}
 	c.HTML(http.StatusOK, "approval.html", gin.H{
 		"scopes": scopes,
 		"client": client.Name,
 	})
-	return storeOriginRequest(c, &r)
+	s := sessions.Default(c)
+	return storeOriginRequest(s, &r)
 }
 
 func approval(c *gin.Context) error {
-	origin, err := getOriginRequest(c)
+	s := sessions.Default(c)
+	origin, err := getOriginRequest(s)
 	if err != nil {
 		return err
 	}
@@ -89,11 +92,12 @@ func approval(c *gin.Context) error {
 	}
 	client, err := clientService.GetClient(origin.ClientID)
 	if err != nil {
-		return oauth.NewErr(err, "unknown error")
+		fmt.Printf("%v", err)
+		return oauth.NewErr(oauth.ErrServerError, "unknown error")
 	}
 
 	redirect, _ := client.RedirectURL(origin.Redirect)
-	redirectTo, _ := url.Parse(redirect)
+	to, _ := url.Parse(redirect)
 
 	loginValue, _ := c.Get(security.SessionKeyLogin)
 	if login, ok := loginValue.(*security.SessionLogin); ok {
@@ -102,38 +106,36 @@ func approval(c *gin.Context) error {
 
 	rs := c.PostFormArray("scope")
 	if len(rs) == 0 {
-		return NewRedirectErrMsg(oauth.ErrInvalidScope, "scope is not selected", redirectTo)
+		return routeWrap(oauth.NewErr(oauth.ErrInvalidScope, "resource owner denied access"), origin, to)
 	}
 	origin.Scopes = strings.Join(rs, " ")
 
 	var src any
 	if origin.ResponseType == oauth.ResponseTypeCode {
 		if src, err = authCodeService.New(client, origin); err != nil {
-			return NewRedirectErr(err, redirectTo)
+			return routeWrap(err, origin, to)
 		}
 	}
 
 	enhancer := chaining(authorizationCodeFlow)
-	if err = enhancer(origin, src, redirectTo); err != nil {
-		return NewRedirectErr(err, redirectTo)
+	if err = enhancer(origin, src, to); err != nil {
+		return routeWrap(err, origin, to)
 	}
 
-	c.Redirect(http.StatusMovedPermanently, redirectTo.String())
-	return clearOriginRequest(c)
+	c.Redirect(http.StatusMovedPermanently, to.String())
+	return clearOriginRequest(s)
 }
 
-func storeOriginRequest(c *gin.Context, r *oauth.AuthorizationRequest) error {
+func storeOriginRequest(s sessions.Session, r *oauth.AuthorizationRequest) error {
 	serial, err := json.Marshal(&r)
 	if err != nil {
 		return err
 	}
-	s := sessions.Default(c)
 	s.Set(sessionKeyOriginAuthRequest, serial)
 	return s.Save()
 }
 
-func getOriginRequest(c *gin.Context) (*oauth.AuthorizationRequest, error) {
-	s := sessions.Default(c)
+func getOriginRequest(s sessions.Session) (*oauth.AuthorizationRequest, error) {
 	v := s.Get(sessionKeyOriginAuthRequest)
 	if rb, ok := v.([]byte); ok {
 		var r oauth.AuthorizationRequest
@@ -143,8 +145,7 @@ func getOriginRequest(c *gin.Context) (*oauth.AuthorizationRequest, error) {
 	return nil, nil
 }
 
-func clearOriginRequest(c *gin.Context) error {
-	s := sessions.Default(c)
+func clearOriginRequest(s sessions.Session) error {
 	s.Delete(sessionKeyOriginAuthRequest)
 	return s.Save()
 }
