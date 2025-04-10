@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+	"gorm.io/gorm"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 )
@@ -45,5 +47,15 @@ func (s AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*
 }
 
 func (s AuthCodeService) Retrieve(code string) (*entity.AuthorizationCode, error) {
-	return s.repository.FindByCode(code)
+	authCode, err := s.repository.FindByCode(code)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "authorization code is not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err = s.repository.Delete(authCode); err != nil {
+		return nil, err
+	}
+	return authCode, nil
 }

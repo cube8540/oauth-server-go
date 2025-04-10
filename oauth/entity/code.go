@@ -2,7 +2,7 @@ package entity
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
+	"encoding/base64"
 	"github.com/google/uuid"
 	"oauth-server-go/oauth"
 	"time"
@@ -59,16 +59,19 @@ func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
 
 func (c *AuthorizationCode) Verifier(v oauth.CodeVerifier) (bool, error) {
 	if c.CodeChallenge != "" {
-		if c.CodeChallengeMethod == oauth.CodeChallengeS256 {
+		switch c.CodeChallengeMethod {
+		case oauth.CodeChallengeS256:
 			hash := sha256.New()
 			_, err := hash.Write([]byte(v))
 			if err != nil {
 				return false, err
 			}
-			encoded := hex.EncodeToString(hash.Sum(nil))
+			encoded := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 			return string(c.CodeChallenge) == encoded, nil
-		} else if c.CodeChallengeMethod == oauth.CodeChallengePlan {
+		case oauth.CodeChallengePlan:
 			return string(c.CodeChallenge) == string(v), nil
+		default:
+			return false, nil
 		}
 	}
 	return true, nil

@@ -29,11 +29,11 @@ func Routing(route *gin.Engine) {
 	}
 
 	auth := route.Group("/auth")
-	auth.GET("/login", protocol.NewHTTPHandler(errHandle, loginPage))
+	auth.GET("/login", protocol.NewHTTPHandler(errHandle, h.loginPage))
 	auth.POST("/login", protocol.NewHTTPHandler(errHandle, h.login))
 }
 
-func loginPage(c *gin.Context) error {
+func (h h) loginPage(c *gin.Context) error {
 	c.HTML(http.StatusOK, "login.html", gin.H{})
 	return nil
 }

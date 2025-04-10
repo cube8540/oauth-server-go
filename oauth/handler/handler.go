@@ -14,14 +14,39 @@ import (
 	"time"
 )
 
+// sessionKeyOriginAuthRequest 인가요청을 세션에 저장할 때 사용하는 키
+//
+// /authorize 요청이 완료될 때 해당 요청에 사용했던 요청 정보를 세션에 저장한다.
+// 저장된 세션은 실제로 토큰을 발행 할 때 사용되며 발급이 완료되면 세션에서 삭제한다.
 const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
 type h struct {
+	// clientRetriever OAuth 클라이언트의 아이디를 받아 조회한다.
 	clientRetriever func(id string) (*entity.Client, error)
+
+	// requestConsumer response_type에 따라 인가 코드나 토큰을 생성하여 반환한다.
+	// 각 응답 처리에 대한 사항은 [RFC 6749] 문단의 [4.1.2], [4.2.2] 를 참고한다.
+	//
+	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749
+	// [4.1.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
+	// [4.2.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.2
 	requestConsumer func(c *entity.Client, request *oauth.AuthorizationRequest) (any, error)
-	tokenIssuer     func(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
+
+	// tokenIssuer 요청에 따라 토큰을 발행한다.
+	// 각 요청에 따른 토큰 발행은 [RFC 6749] 문단의 [4.1.4], [4.3.3], [4.4.3] 을 참고 한다.
+	//
+	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749
+	// [4.1.4]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
+	// [4.3.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.3.3
+	// [4.4.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.3
+	tokenIssuer func(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
 }
 
+// authorize 인가 요청을 받아 처리한다. 이 방식은 OAuth2의 [Authorization Code Grant] 와 [Implicit Grant] 의 흐름을 구현한다.
+// 인증에 사용된 요청은 세선에 저장되었다가 실제 토큰을 발행할 때 사용한다.
+//
+// [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
+// [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
 func (h h) authorize(c *gin.Context) error {
 	var r oauth.AuthorizationRequest
 	if err := c.ShouldBindQuery(&r); err != nil {
@@ -60,6 +85,13 @@ func (h h) authorize(c *gin.Context) error {
 	return storeOriginRequest(s, &r)
 }
 
+// approval [Authorization Code Grant] 와 [Implicit Grant] 인가 방식에서 리소스 소유자의 승인이 완료 되어 인가 코드나 토큰을 생성하고 클라이언트 서버로 리다이렉트 한다.
+//
+// 요청값으로 사용자가 허용한 스코프를 리스트로 받으며 그 외의 필요한 값들은 기존에 HTTP GET: /authorize 요청에서 사용한 요청을 세션에서 꺼내어 사용한다.
+// 그럼으로 GET: /authorize 접근 없이 이 API에 바로 접근 한 경우 에러를 반환하며 종료한다.
+//
+// [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
+// [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
 func (h h) approval(c *gin.Context) error {
 	s := sessions.Default(c)
 	origin, err := getOriginRequest(s)
@@ -103,6 +135,7 @@ func (h h) approval(c *gin.Context) error {
 	return clearOriginRequest(s)
 }
 
+// issueToken 토큰을 생성하고 반환한다.
 func (h h) issueToken(c *gin.Context) error {
 	var r oauth.TokenRequest
 	err := c.Bind(&r)
