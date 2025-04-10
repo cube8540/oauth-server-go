@@ -11,17 +11,23 @@ func init() {
 	codeGenerator = entity.UUIDAuthCodeGenerator
 }
 
-type AuthCodeService struct {
-	New func(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error)
+type AuthCodeRepository interface {
+	Save(c *entity.AuthorizationCode) error
+	Delete(c *entity.AuthorizationCode) error
+	FindByCode(code string) (*entity.AuthorizationCode, error)
 }
 
-func NewAuthCodeService() *AuthCodeService {
+type AuthCodeService struct {
+	repository AuthCodeRepository
+}
+
+func NewAuthCodeService(r AuthCodeRepository) *AuthCodeService {
 	return &AuthCodeService{
-		New: newAuthCode,
+		repository: r,
 	}
 }
 
-func newAuthCode(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error) {
+func (s AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error) {
 	scopes, err := c.GetScopes(r.SplitScope())
 	if err != nil {
 		return nil, err
@@ -29,20 +35,15 @@ func newAuthCode(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.Autho
 	code := entity.NewAuthCode(codeGenerator)
 	code.ClientID = c.ID
 	code.Scopes = scopes
-	err = code.Set(r)
-	if err != nil {
+	if err = code.Set(r); err != nil {
 		return nil, err
 	}
-	if err = authCodeRepository.Save(code); err != nil {
+	if err = s.repository.Save(code); err != nil {
 		return nil, err
 	}
 	return code, nil
 }
 
-func getCode(c string) (*entity.AuthorizationCode, error) {
-	return authCodeRepository.FindByCode(c)
-}
-
-func deleteCode(c *entity.AuthorizationCode) error {
-	return authCodeRepository.Delete(c)
+func (s AuthCodeService) Retrieve(code string) (*entity.AuthorizationCode, error) {
+	return s.repository.FindByCode(code)
 }

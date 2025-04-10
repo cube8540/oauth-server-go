@@ -77,3 +77,15 @@ func (c *Client) ContainsRedirect(url string) bool {
 func (c *Client) TableName() string {
 	return "users.oauth2_client"
 }
+
+type Scope struct {
+	ID           uint
+	Code         string
+	Name         string
+	Desc         string
+	RegisteredAt time.Time
+}
+
+func (s Scope) TableName() string {
+	return "users.oauth2_scope"
+}

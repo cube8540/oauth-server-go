@@ -9,8 +9,6 @@ import (
 	"net/url"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
-	"oauth-server-go/oauth/service"
-	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	"strings"
 	"time"
@@ -18,46 +16,35 @@ import (
 
 const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
-var (
-	clientService     *service.ClientService
-	authCodeService   *service.AuthCodeService
-	tokenIssueService *service.TokenIssueService
+type (
+	ClientAuthenticationProvider interface {
+		Auth(id, secret string) (*entity.Client, error)
+	}
+	ClientRetriever interface {
+		GetClient(id string) (*entity.Client, error)
+	}
+	AuthorizationRequestConsumer interface {
+		Consume(c *entity.Client, request *oauth.AuthorizationRequest) (any, error)
+	}
+	TokenIssuer interface {
+		Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
+	}
 )
 
-func init() {
-	clientService = service.NewClientService()
-	authCodeService = service.NewAuthCodeService()
-	tokenIssueService = service.NewTokenIssueService()
+type Handler interface {
+	authorize(c *gin.Context) error
+	approval(c *gin.Context) error
+	issueToken(c *gin.Context) error
 }
 
-func Routing(route *gin.Engine) {
-	oauthPath := route.Group("/oauth")
-	oauthPath.Use(func(c *gin.Context) {
-		c.Header("Cache-Control", "no-cache")
-	})
-
-	authPath := oauthPath.Group("/authorize")
-	authPath.Use(security.Authenticated(func(c *gin.Context) {
-		errHandle(c, oauth.NewErr(oauth.ErrAccessDenied, "resource owner login is required"))
-	}))
-	authPath.GET("", protocol.NewHTTPHandler(errHandle, authorize))
-	authPath.POST("", protocol.NewHTTPHandler(errHandle, approval))
-
-	tokenPath := oauthPath.Group("/token")
-	tokenPath.Use(clientBasicAuthManage(clientService.Auth, errHandle))
-	tokenPath.Use(clientFormAuthManage(clientService.Auth, errHandle))
-	tokenPath.Use(func(c *gin.Context) {
-		_, exists := c.Get(oauth2ShareKeyAuthClient)
-		if !exists {
-			errHandle(c, oauth.NewErr(oauth.ErrUnauthorizedClient, "client auth is required"))
-			c.Abort()
-		}
-		c.Next()
-	})
-	tokenPath.POST("", protocol.NewHTTPHandler(errHandle, tokenIssue))
+type h struct {
+	clientAuthenticationProvider ClientAuthenticationProvider
+	clientRetriever              ClientRetriever
+	requestConsumer              AuthorizationRequestConsumer
+	tokenIssuer                  TokenIssuer
 }
 
-func authorize(c *gin.Context) error {
+func (h h) authorize(c *gin.Context) error {
 	var r oauth.AuthorizationRequest
 	if err := c.ShouldBindQuery(&r); err != nil {
 		return err
@@ -66,7 +53,7 @@ func authorize(c *gin.Context) error {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "client id is required")
 	}
 
-	client, err := clientService.GetClient(r.ClientID)
+	client, err := h.clientRetriever.GetClient(r.ClientID)
 	if err != nil {
 		return err
 	}
@@ -80,7 +67,7 @@ func authorize(c *gin.Context) error {
 		return routeWrap(oauth.NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), &r, to)
 	}
 	if r.ResponseType != oauth.ResponseTypeCode && r.ResponseType != oauth.ResponseTypeToken {
-		return routeWrap(oauth.NewErr(oauth.ErrUnsupportedGrantType, "unsupported grant type"), &r, to)
+		return routeWrap(oauth.NewErr(oauth.ErrUnsupportedResponseType, "unsupported"), &r, to)
 	}
 
 	scopes, err := client.GetScopes(r.SplitScope())
@@ -95,7 +82,7 @@ func authorize(c *gin.Context) error {
 	return storeOriginRequest(s, &r)
 }
 
-func approval(c *gin.Context) error {
+func (h h) approval(c *gin.Context) error {
 	s := sessions.Default(c)
 	origin, err := getOriginRequest(s)
 	if err != nil {
@@ -104,7 +91,7 @@ func approval(c *gin.Context) error {
 	if origin == nil {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "origin request is not found")
 	}
-	client, err := clientService.GetClient(origin.ClientID)
+	client, err := h.clientRetriever.GetClient(origin.ClientID)
 	if err != nil {
 		fmt.Printf("%v", err)
 		return oauth.NewErr(oauth.ErrServerError, "unknown error")
@@ -124,11 +111,9 @@ func approval(c *gin.Context) error {
 	}
 	origin.Scopes = strings.Join(rs, " ")
 
-	var src any
-	if origin.ResponseType == oauth.ResponseTypeCode {
-		if src, err = authCodeService.New(client, origin); err != nil {
-			return routeWrap(err, origin, to)
-		}
+	src, err := h.requestConsumer.Consume(client, origin)
+	if err != nil {
+		return routeWrap(err, origin, to)
 	}
 
 	enhancer := chaining(authorizationCodeFlow)
@@ -140,26 +125,16 @@ func approval(c *gin.Context) error {
 	return clearOriginRequest(s)
 }
 
-func tokenIssue(c *gin.Context) error {
+func (h h) issueToken(c *gin.Context) error {
 	var r oauth.TokenRequest
 	err := c.Bind(&r)
 	if err != nil {
 		return err
 	}
-
 	clientValue, _ := c.Get(oauth2ShareKeyAuthClient)
-	client, _ := clientValue.(*entity.Client)
-
-	var token *entity.Token
-	var refresh *entity.RefreshToken
-	switch r.GrantType {
-	case oauth.GrantTypeAuthorizationCode:
-		token, refresh, err = tokenIssueService.AuthorizationCodeFlow(client, &r)
-		if err != nil {
-			return err
-		}
-	default:
-		return oauth.NewErr(oauth.ErrUnsupportedGrantType, "unsupported")
+	token, refresh, err := h.tokenIssuer.Generate(clientValue.(*entity.Client), &r)
+	if err != nil {
+		return err
 	}
 	if token == nil {
 		return oauth.NewErr(oauth.ErrServerError, "token cannot issued")

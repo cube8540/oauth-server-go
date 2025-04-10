@@ -1,39 +1,40 @@
 package service
 
 import (
-	"errors"
-	"gorm.io/gorm"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 )
 
-type TokenIssueService struct {
-	AuthorizationCodeFlow func(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
+// TokenRepository OAuth2 토큰 저장소
+type TokenRepository interface {
+	Save(t *entity.Token) error
 }
 
-func NewTokenIssueService() *TokenIssueService {
-	return &TokenIssueService{
-		AuthorizationCodeFlow: authorizationCodeFlow,
+// AuthCodeRetriever 인자로 인가코드를 받아 그 인가코드의 엔티티 반환하고 저장소에서 삭제한다.
+type AuthCodeRetriever interface {
+	Retrieve(code string) (*entity.AuthorizationCode, error)
+}
+
+type AuthorizationCodeFlow struct {
+	tokenRepository TokenRepository
+	codeRetriever   AuthCodeRetriever
+}
+
+func NewAuthorizationCodeFlow(tr TokenRepository, acr AuthCodeRetriever) *AuthorizationCodeFlow {
+	return &AuthorizationCodeFlow{
+		tokenRepository: tr,
+		codeRetriever:   acr,
 	}
 }
 
-func authorizationCodeFlow(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
 	if r.Code == "" {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "authorization code is required")
 	}
-	code, err := getCode(r.Code)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "authorization code is not found")
-	}
+	code, err := s.codeRetriever.Retrieve(r.Code)
 	if err != nil {
 		return nil, nil, err
 	}
-	if code == nil {
-		return nil, nil, oauth.NewErr(oauth.ErrInvalidGrant, "authorization code is not found")
-	}
-	defer func() {
-		_ = deleteCode(code)
-	}()
 	if code.ClientID != c.ID {
 		return nil, nil, oauth.NewErr(oauth.ErrUnauthorizedClient, "authorization code client is different")
 	}
@@ -47,13 +48,11 @@ func authorizationCodeFlow(c *entity.Client, r *oauth.TokenRequest) (*entity.Tok
 	if !verifier {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "code_verifier is not matched")
 	}
-	to, _ := c.RedirectURL(code.Redirect)
-	if to != r.Redirect {
+	if to, _ := c.RedirectURL(code.Redirect); to != r.Redirect {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "redirect_uri is not matched")
 	}
 	token := entity.NewToken(entity.UUIDTokenIDGenerator, code)
-	err = tokenRepository.Save(token)
-	if err != nil {
+	if err = s.tokenRepository.Save(token); err != nil {
 		return nil, nil, err
 	}
 	return token, nil, nil
