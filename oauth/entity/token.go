@@ -57,6 +57,16 @@ type RefreshToken struct {
 	IssuedAt, ExpiredAt time.Time
 }
 
+func NewRefreshToken(t *Token, gen TokenIDGenerator) *RefreshToken {
+	now := time.Now()
+	return &RefreshToken{
+		Value:     gen(),
+		TokenID:   t.ID,
+		IssuedAt:  now,
+		ExpiredAt: now.Add(refreshExpiresMinute),
+	}
+}
+
 func (t RefreshToken) TableName() string {
 	return "users.oauth2_refresh_token"
 }

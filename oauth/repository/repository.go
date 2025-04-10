@@ -30,25 +30,18 @@ func NewTokenRepository(db *gorm.DB) *TokenRepository {
 	return &TokenRepository{db: db}
 }
 
-func (r TokenRepository) Save(t *entity.Token) error {
-	return r.db.Save(t).Error
-}
-
-type ScopeRepository struct {
-	db *gorm.DB
-}
-
-func NewScopeRepository(db *gorm.DB) *ScopeRepository {
-	return &ScopeRepository{db: db}
-}
-
-func (r ScopeRepository) FindByCode(code ...string) ([]entity.Scope, error) {
-	var scopes []entity.Scope
-	err := r.db.Where("code in ?", code).Find(&scopes).Error
-	if err != nil {
-		return nil, err
-	}
-	return scopes, nil
+func (r TokenRepository) Save(t *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error {
+	return r.db.Transaction(func(db *gorm.DB) error {
+		if err := db.Save(t).Error; err != nil {
+			return err
+		}
+		if refresh := fn(t); refresh != nil {
+			if err := db.Save(refresh).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 type AuthCodeRepository struct {
@@ -73,7 +66,7 @@ func (r AuthCodeRepository) FindByCode(code string) (*entity.AuthorizationCode, 
 }
 
 func (r AuthCodeRepository) Delete(c *entity.AuthorizationCode) error {
-	err := r.db.Model(c).Association("Scopes").Delete(c.Scopes)
+	err := r.db.Model(c).Association("Scopes").Clear()
 	if err != nil {
 		return err
 	}
