@@ -24,7 +24,7 @@ type AuthorizationCode struct {
 	Username            string
 	State               string
 	Redirect            string
-	Scopes              []Scope `gorm:"many2many:users.oauth2_code_scopes"`
+	Scopes              []Scope `gorm:"many2many:users.oauth2_code_scope;joinForeignKey:code_id;joinReferences:scope_id"`
 	CodeChallenge       oauth.CodeChallenge
 	CodeChallengeMethod oauth.CodeChallengeMethod
 	IssuedAt, ExpiredAt time.Time

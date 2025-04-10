@@ -16,7 +16,7 @@ type Client struct {
 	Secret       string
 	OwnerID      string
 	Redirects    sql.Strings `gorm:"column:redirect_uris"`
-	Scopes       []Scope     `gorm:"many2many:users.oauth2_client_scopes"`
+	Scopes       []Scope     `gorm:"many2many:users.oauth2_client_scope;joinForeignKey:client_id;joinReferences:scope_id"`
 	RegisteredAt time.Time   `gorm:"column:reg_dt"`
 }
 
@@ -81,9 +81,9 @@ func (c *Client) TableName() string {
 type Scope struct {
 	ID           uint
 	Code         string
-	Name         string
-	Desc         string
-	RegisteredAt time.Time
+	Name         string    `gorm:"column:scope_name"`
+	Desc         string    `gorm:"column:description"`
+	RegisteredAt time.Time `gorm:"column:reg_at"`
 }
 
 func (s Scope) TableName() string {

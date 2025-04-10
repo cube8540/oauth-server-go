@@ -28,7 +28,7 @@ type Token struct {
 	ClientID            uint
 	Client              Client
 	Username            string
-	Scopes              []Scope `gorm:"many2many:users.oauth2_token_scopes"`
+	Scopes              []Scope `gorm:"many2many:users.oauth2_token_scope;joinForeignKey:token_id;joinReferences:scope_id"`
 	IssuedAt, ExpiredAt time.Time
 }
 
