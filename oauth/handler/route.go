@@ -13,16 +13,16 @@ import (
 )
 
 type (
-	AuthorizationRequestFlow struct {
+	authorizationRequestFlow struct {
 		authCodeService *service.AuthCodeService
 	}
 
-	TokenIssueFlow struct {
+	tokenIssueFlow struct {
 		authorizationCodeFlow *service.AuthorizationCodeFlow
 	}
 )
 
-func (f AuthorizationRequestFlow) Consume(c *entity.Client, r *oauth.AuthorizationRequest) (any, error) {
+func (f authorizationRequestFlow) consume(c *entity.Client, r *oauth.AuthorizationRequest) (any, error) {
 	switch r.ResponseType {
 	case oauth.ResponseTypeCode:
 		return f.authCodeService.New(c, r)
@@ -31,7 +31,7 @@ func (f AuthorizationRequestFlow) Consume(c *entity.Client, r *oauth.Authorizati
 	}
 }
 
-func (f TokenIssueFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+func (f tokenIssueFlow) generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
 	switch r.GrantType {
 	case oauth.GrantTypeAuthorizationCode:
 		return f.authorizationCodeFlow.Generate(c, r)
@@ -47,20 +47,19 @@ func Routing(route *gin.Engine) {
 	authCodeRepository := repository.NewAuthCodeRepository(conf.GetDB())
 	authCodeService := service.NewAuthCodeService(authCodeRepository)
 
-	requestConsumer := &AuthorizationRequestFlow{
+	requestConsumer := &authorizationRequestFlow{
 		authCodeService: authCodeService,
 	}
 
 	tokenRepository := repository.NewTokenRepository(conf.GetDB())
-	tokenIssueFlow := &TokenIssueFlow{
-		authorizationCodeFlow: service.NewAuthorizationCodeFlow(tokenRepository, authCodeService),
+	issueFlow := &tokenIssueFlow{
+		authorizationCodeFlow: service.NewAuthorizationCodeFlow(tokenRepository, authCodeService.Retrieve),
 	}
 
 	h := h{
-		clientAuthenticationProvider: clientService,
-		clientRetriever:              clientService,
-		requestConsumer:              requestConsumer,
-		tokenIssuer:                  tokenIssueFlow,
+		clientRetriever: clientService.GetClient,
+		requestConsumer: requestConsumer.consume,
+		tokenIssuer:     issueFlow.generate,
 	}
 
 	group := route.Group("/oauth")

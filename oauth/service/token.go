@@ -10,20 +10,18 @@ type TokenRepository interface {
 	Save(t *entity.Token) error
 }
 
-// AuthCodeRetriever 인자로 인가코드를 받아 그 인가코드의 엔티티 반환하고 저장소에서 삭제한다.
-type AuthCodeRetriever interface {
-	Retrieve(code string) (*entity.AuthorizationCode, error)
-}
+// AuthCodeConsume 인자로 인가코드를 받아 그 인가코드의 엔티티 반환하고 저장소에서 삭제한다.
+type AuthCodeConsume func(code string) (*entity.AuthorizationCode, error)
 
 type AuthorizationCodeFlow struct {
 	tokenRepository TokenRepository
-	codeRetriever   AuthCodeRetriever
+	consume         AuthCodeConsume
 }
 
-func NewAuthorizationCodeFlow(tr TokenRepository, acr AuthCodeRetriever) *AuthorizationCodeFlow {
+func NewAuthorizationCodeFlow(tr TokenRepository, consume AuthCodeConsume) *AuthorizationCodeFlow {
 	return &AuthorizationCodeFlow{
 		tokenRepository: tr,
-		codeRetriever:   acr,
+		consume:         consume,
 	}
 }
 
@@ -31,7 +29,7 @@ func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 	if r.Code == "" {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "authorization code is required")
 	}
-	code, err := s.codeRetriever.Retrieve(r.Code)
+	code, err := s.consume(r.Code)
 	if err != nil {
 		return nil, nil, err
 	}

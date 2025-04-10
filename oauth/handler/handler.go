@@ -16,32 +16,10 @@ import (
 
 const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
-type (
-	ClientAuthenticationProvider interface {
-		Auth(id, secret string) (*entity.Client, error)
-	}
-	ClientRetriever interface {
-		GetClient(id string) (*entity.Client, error)
-	}
-	AuthorizationRequestConsumer interface {
-		Consume(c *entity.Client, request *oauth.AuthorizationRequest) (any, error)
-	}
-	TokenIssuer interface {
-		Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
-	}
-)
-
-type Handler interface {
-	authorize(c *gin.Context) error
-	approval(c *gin.Context) error
-	issueToken(c *gin.Context) error
-}
-
 type h struct {
-	clientAuthenticationProvider ClientAuthenticationProvider
-	clientRetriever              ClientRetriever
-	requestConsumer              AuthorizationRequestConsumer
-	tokenIssuer                  TokenIssuer
+	clientRetriever func(id string) (*entity.Client, error)
+	requestConsumer func(c *entity.Client, request *oauth.AuthorizationRequest) (any, error)
+	tokenIssuer     func(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
 }
 
 func (h h) authorize(c *gin.Context) error {
@@ -53,7 +31,7 @@ func (h h) authorize(c *gin.Context) error {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "client id is required")
 	}
 
-	client, err := h.clientRetriever.GetClient(r.ClientID)
+	client, err := h.clientRetriever(r.ClientID)
 	if err != nil {
 		return err
 	}
@@ -91,7 +69,7 @@ func (h h) approval(c *gin.Context) error {
 	if origin == nil {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "origin request is not found")
 	}
-	client, err := h.clientRetriever.GetClient(origin.ClientID)
+	client, err := h.clientRetriever(origin.ClientID)
 	if err != nil {
 		fmt.Printf("%v", err)
 		return oauth.NewErr(oauth.ErrServerError, "unknown error")
@@ -111,7 +89,7 @@ func (h h) approval(c *gin.Context) error {
 	}
 	origin.Scopes = strings.Join(rs, " ")
 
-	src, err := h.requestConsumer.Consume(client, origin)
+	src, err := h.requestConsumer(client, origin)
 	if err != nil {
 		return routeWrap(err, origin, to)
 	}
@@ -132,7 +110,7 @@ func (h h) issueToken(c *gin.Context) error {
 		return err
 	}
 	clientValue, _ := c.Get(oauth2ShareKeyAuthClient)
-	token, refresh, err := h.tokenIssuer.Generate(clientValue.(*entity.Client), &r)
+	token, refresh, err := h.tokenIssuer(clientValue.(*entity.Client), &r)
 	if err != nil {
 		return err
 	}
