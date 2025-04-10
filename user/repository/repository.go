@@ -1,23 +1,23 @@
 package repository
 
 import (
-	"oauth-server-go/conf"
+	"gorm.io/gorm"
 	"oauth-server-go/user/entity"
 )
 
 type AccountRepository struct {
-	FindByUsername func(u string) (*entity.Account, error)
+	db *gorm.DB
 }
 
-func NewAccountRepository() *AccountRepository {
+func NewAccountRepository(db *gorm.DB) *AccountRepository {
 	return &AccountRepository{
-		FindByUsername: findAccountByUsername,
+		db: db,
 	}
 }
 
-func findAccountByUsername(u string) (*entity.Account, error) {
+func (r AccountRepository) FindByUsername(u string) (*entity.Account, error) {
 	var account entity.Account
-	err := conf.GetDB().Where(&entity.Account{Username: u}).First(&account).Error
+	err := r.db.Where(&entity.Account{Username: u}).First(&account).Error
 	if err != nil {
 		return nil, err
 	}
