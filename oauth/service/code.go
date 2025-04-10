@@ -54,8 +54,10 @@ func (s AuthCodeService) Retrieve(code string) (*entity.AuthorizationCode, error
 	if err != nil {
 		return nil, err
 	}
+	scopes := authCode.Scopes
 	if err = s.repository.Delete(authCode); err != nil {
 		return nil, err
 	}
+	authCode.Scopes = scopes
 	return authCode, nil
 }
