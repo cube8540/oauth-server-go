@@ -33,9 +33,9 @@ func NewErr(code, message string) error {
 
 func HttpStatus(c string) int {
 	switch c {
-	case ErrInvalidRequest, ErrInvalidGrant:
+	case ErrInvalidRequest, ErrInvalidGrant, ErrInvalidScope, ErrInvalidClient:
 		return http.StatusBadRequest
-	case ErrAccessDenied:
+	case ErrAccessDenied, ErrUnauthorizedClient:
 		return http.StatusUnauthorized
 	default:
 		return http.StatusInternalServerError
