@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"oauth-server-go/conf"
 	oauthhandler "oauth-server-go/oauth/handler"
+	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	userhandler "oauth-server-go/user/handler"
 )
@@ -15,6 +16,7 @@ func main() {
 
 	route.LoadHTMLGlob("templates/*")
 
+	route.Use(protocol.ErrorHandlerMiddleware())
 	route.Use(sessions.Sessions("g_session_id", store))
 	route.Use(security.Authentication())
 

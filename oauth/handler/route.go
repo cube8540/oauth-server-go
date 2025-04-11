@@ -64,34 +64,36 @@ func Routing(route *gin.Engine) {
 
 	group := route.Group("/oauth")
 	group.Use(noCacheMiddleware)
+	group.Use(ErrorHandleMiddleware())
 
 	authorize := group.Group("/authorize")
-	authorize.Use(security.Authenticated(newAccessDeniedHandler(errHandle)))
-	authorize.GET("", protocol.NewHTTPHandler(errHandle, h.authorize))
-	authorize.POST("", protocol.NewHTTPHandler(errHandle, h.approval))
+	authorize.Use(security.Authenticated(newAccessDeniedHandler()))
+	authorize.GET("", protocol.NewHTTPHandler(h.authorize))
+	authorize.POST("", protocol.NewHTTPHandler(h.approval))
 
 	token := group.Group("/token")
-	token.Use(clientBasicAuthManage(clientService.Auth, errHandle))
-	token.Use(clientFormAuthManage(clientService.Auth, errHandle))
-	token.Use(newClientAuthRequiredMiddleware(errHandle))
-	token.POST("", protocol.NewHTTPHandler(errHandle, h.issueToken))
+	token.Use(clientBasicAuthManage(clientService.Auth))
+	token.Use(clientFormAuthManage(clientService.Auth))
+	token.Use(newClientAuthRequiredMiddleware())
+	token.POST("", protocol.NewHTTPHandler(h.issueToken))
 }
 
 func noCacheMiddleware(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 }
 
-func newAccessDeniedHandler(eh protocol.ErrHandler) security.AccessDeniedHandler {
+func newAccessDeniedHandler() security.AccessDeniedHandler {
 	return func(c *gin.Context) {
-		eh(c, oauth.NewErr(oauth.ErrAccessDenied, "resource owner login is required"))
+		_ = c.Error(oauth.NewErr(oauth.ErrAccessDenied, "resource owner login is required"))
+		c.Abort()
 	}
 }
 
-func newClientAuthRequiredMiddleware(eh protocol.ErrHandler) gin.HandlerFunc {
+func newClientAuthRequiredMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, exists := c.Get(oauth2ShareKeyAuthClient)
 		if !exists {
-			eh(c, oauth.NewErr(oauth.ErrUnauthorizedClient, "client auth is required"))
+			_ = c.Error(oauth.NewErr(oauth.ErrUnauthorizedClient, "client auth is required"))
 			c.Abort()
 		} else {
 			c.Next()

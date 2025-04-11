@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"oauth-server-go/conf"
@@ -29,8 +28,8 @@ func Routing(route *gin.Engine) {
 	}
 
 	auth := route.Group("/auth")
-	auth.GET("/login", protocol.NewHTTPHandler(errHandle, h.loginPage))
-	auth.POST("/login", protocol.NewHTTPHandler(errHandle, h.login))
+	auth.GET("/login", protocol.NewHTTPHandler(h.loginPage))
+	auth.POST("/login", protocol.NewHTTPHandler(h.login))
 }
 
 func (h h) loginPage(c *gin.Context) error {
@@ -41,29 +40,28 @@ func (h h) loginPage(c *gin.Context) error {
 func (h h) login(c *gin.Context) error {
 	var req model.Login
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		return err
+		return wrap(err)
 	}
 	account, err := h.authentication(&req)
 	if err != nil {
-		return err
+		return wrap(err)
 	}
 	sl := &security.SessionLogin{Username: account.Username}
 	if err = security.StoreLogin(c, sl); err != nil {
-		return err
+		return wrap(err)
 	}
 	c.JSON(http.StatusOK, protocol.NewOK(protocol.MsgOK))
 	return nil
 }
 
-func errHandle(c *gin.Context, err error) {
+func wrap(err error) error {
 	if errors.Is(err, user.ErrRequireParamsMissing) {
-		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadRequest, "require parameters are missing"))
+		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "require parameter is missing")
 	} else if errors.Is(err, user.ErrAccountNotFound) || errors.Is(err, user.ErrPasswordNotMatch) {
-		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadState, "id/password is not match"))
+		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "id/password is not matched")
 	} else if errors.Is(err, user.ErrAccountLocked) {
-		c.JSON(http.StatusBadRequest, protocol.NewErr(protocol.ErrMsgBadState, "account is locked"))
+		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "account is locked")
 	} else {
-		fmt.Printf("%v\n", err)
-		c.JSON(http.StatusInternalServerError, protocol.NewErr(protocol.ErrMsgUnknown, "internal server error"))
+		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
 	}
 }

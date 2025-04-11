@@ -71,13 +71,19 @@ func parse(err error) oauth.ErrResponse {
 	return er
 }
 
-func errHandle(c *gin.Context, err error) {
-	m := parse(err)
+func ErrorHandleMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if len(c.Errors) > 0 && !c.Writer.Written() && c.Writer.Status() == http.StatusOK {
+			err := c.Errors.Last()
+			m := parse(err)
 
-	var routeError *routeErr
-	if errors.As(err, &routeError) {
-		c.Redirect(http.StatusMovedPermanently, m.QueryParam(routeError.to).String())
-	} else {
-		c.JSON(oauth.HttpStatus(m.Code), m)
+			var routeError *routeErr
+			if errors.As(err, &routeError) {
+				c.Redirect(http.StatusMovedPermanently, m.QueryParam(routeError.to).String())
+			} else {
+				c.JSON(oauth.HttpStatus(m.Code), m)
+			}
+		}
 	}
 }
