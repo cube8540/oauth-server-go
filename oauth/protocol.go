@@ -67,8 +67,8 @@ const (
 type ErrResponse struct {
 	Code    string `json:"error"`
 	Message string `json:"error_description"`
-	State   string `json:"state"`
-	Uri     string `json:"error_uri"`
+	State   string `json:"state,omitempty"`
+	Uri     string `json:"error_uri,omitempty"`
 }
 
 // QueryParam 인자로 받은 URL에 현제 저장된 에러 정보들을 URL Query Param으로 붙여 반환한다.
@@ -171,21 +171,21 @@ type (
 	// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
 	Introspection struct {
 		Active    bool      `json:"active"`
-		Scope     string    `json:"scope"`
-		ClientID  string    `json:"client_id"`
-		Username  string    `json:"username"`
-		TokenType TokenType `json:"token_type"`
+		Scope     string    `json:"scope,omitempty"`
+		ClientID  string    `json:"client_id,omitempty"`
+		Username  string    `json:"username,omitempty"`
+		TokenType TokenType `json:"token_type,omitempty"`
 
 		/*************************************/
 		/**************** JWT ****************/
 		/*************************************/
 
-		ExpiresIn uint   `json:"exp"`
-		IssuedAt  uint   `json:"iat"`
-		NotBefore uint   `json:"nbf"`
-		Subject   string `json:"sub"`
-		Audience  string `json:"aud"`
-		Issuer    string `json:"iss"`
-		JTI       string `json:"jti"`
+		ExpiresIn uint   `json:"exp,omitempty"`
+		IssuedAt  uint   `json:"iat,omitempty"`
+		NotBefore uint   `json:"nbf,omitempty"`
+		Subject   string `json:"sub,omitempty"`
+		Audience  string `json:"aud,omitempty"`
+		Issuer    string `json:"iss,omitempty"`
+		JTI       string `json:"jti,omitempty"`
 	}
 )
