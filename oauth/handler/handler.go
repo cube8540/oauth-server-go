@@ -11,7 +11,6 @@ import (
 	"oauth-server-go/oauth/entity"
 	"oauth-server-go/security"
 	"strings"
-	"time"
 )
 
 // sessionKeyOriginAuthRequest 인가요청을 세션에 저장할 때 사용하는 키
@@ -27,7 +26,7 @@ type h struct {
 	// requestConsumer response_type에 따라 인가 코드나 토큰을 생성하여 반환한다.
 	// 각 응답 처리에 대한 사항은 [RFC 6749] 문단의 [4.1.2], [4.2.2] 를 참고한다.
 	//
-	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749
+	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-4
 	// [4.1.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
 	// [4.2.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.2
 	requestConsumer func(c *entity.Client, request *oauth.AuthorizationRequest) (any, error)
@@ -35,14 +34,21 @@ type h struct {
 	// tokenIssuer 요청에 따라 토큰을 발행한다.
 	// 각 요청에 따른 토큰 발행은 [RFC 6749] 문단의 [4.1.4], [4.3.3], [4.4.3] 을 참고 한다.
 	//
-	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749
+	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-4
 	// [4.1.4]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
 	// [4.3.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.3.3
 	// [4.4.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.3
 	tokenIssuer func(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error)
+
+	// introspector 토큰의 상세 정보를 질의 한다. 요청과 응답 폼은 [RFC 7662] 의 [2.1], [2.2] 문단을 참고
+	//
+	// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2
+	// [2.1]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
+	// [2.2]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
+	introspector func(c *entity.Client, r *oauth.IntrospectionRequest) (*oauth.Introspection, error)
 }
 
-// authorize 인가 요청을 받아 처리한다. 이 방식은 OAuth2의 [Authorization Code Grant] 와 [Implicit Grant] 의 흐름을 구현한다.
+// authorize OAuth2의 [Authorization Code Grant] 와 [Implicit Grant] 의 Authorization Request 구현 핸들러
 // 인증에 사용된 요청은 세선에 저장되었다가 실제 토큰을 발행할 때 사용한다.
 //
 // [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
@@ -85,10 +91,8 @@ func (h h) authorize(c *gin.Context) error {
 	return storeOriginRequest(s, &r)
 }
 
-// approval [Authorization Code Grant] 와 [Implicit Grant] 인가 방식에서 리소스 소유자의 승인이 완료 되어 인가 코드나 토큰을 생성하고 클라이언트 서버로 리다이렉트 한다.
-//
+// approval 리소스 소유자의 승인이 완료 되어 인가 코드나 토큰을 생성하고 지정된 URL로 리다이렉트 한다.
 // 요청값으로 사용자가 허용한 스코프를 리스트로 받으며 그 외의 필요한 값들은 기존에 HTTP GET: /authorize 요청에서 사용한 요청을 세션에서 꺼내어 사용한다.
-// 그럼으로 GET: /authorize 접근 없이 이 API에 바로 접근 한 경우 에러를 반환하며 종료한다.
 //
 // [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
 // [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
@@ -135,11 +139,12 @@ func (h h) approval(c *gin.Context) error {
 	return clearOriginRequest(s)
 }
 
-// issueToken 토큰을 생성하고 반환한다.
+// issueToken 토큰을 생성하고 반환한다. 자세한 사항은 [RFC 6749] 문서를 참고
+//
+// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-5
 func (h h) issueToken(c *gin.Context) error {
 	var r oauth.TokenRequest
-	err := c.Bind(&r)
-	if err != nil {
+	if err := c.Bind(&r); err != nil {
 		return err
 	}
 	clientValue, _ := c.Get(oauth2ShareKeyAuthClient)
@@ -157,13 +162,33 @@ func (h h) issueToken(c *gin.Context) error {
 	res := oauth.TokenResponse{
 		Token:     token.Value,
 		Type:      oauth.TokenTypeBearer,
-		ExpiresIn: uint(token.ExpiredAt.Sub(time.Now()) / time.Second),
-		Scope:     strings.Join(scopes, " "),
+		ExpiresIn: token.InspectExpiredAt(),
+		Scope:     token.InspectScope(),
 	}
 	if refresh != nil {
 		res.Refresh = refresh.Value
 	}
 	c.JSON(http.StatusOK, res)
+	return nil
+}
+
+// introspection 입력 받은 토큰의 상세 정보를 질의 하여 반환한다. 자세한 사항은 [RFC 7662] 참고
+//
+// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2
+func (h h) introspection(c *gin.Context) error {
+	var r oauth.IntrospectionRequest
+	if err := c.Bind(&r); err != nil {
+		return err
+	}
+	if r.Token == "" {
+		return oauth.NewErr(oauth.ErrInvalidRequest, "token is required")
+	}
+	clientValue, _ := c.Get(oauth2ShareKeyAuthClient)
+	intro, err := h.introspector(clientValue.(*entity.Client), &r)
+	if err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, intro)
 	return nil
 }
 

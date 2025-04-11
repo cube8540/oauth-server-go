@@ -44,6 +44,24 @@ func (r TokenRepository) Save(t *entity.Token, fn func(t *entity.Token) *entity.
 	})
 }
 
+func (r TokenRepository) FindAccessTokenByValue(v string) (*entity.Token, error) {
+	var t entity.Token
+	err := r.db.Preload("Scopes").Joins("Client").Where(&entity.Token{Value: v}).First(&t).Error
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r TokenRepository) FindRefreshTokenByValue(v string) (*entity.RefreshToken, error) {
+	var t entity.RefreshToken
+	err := r.db.Joins("Token").Joins("Token.Client").Preload("Token.Scopes").Where(&entity.RefreshToken{Value: v}).First(&t).Error
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
 type AuthCodeRepository struct {
 	db *gorm.DB
 }

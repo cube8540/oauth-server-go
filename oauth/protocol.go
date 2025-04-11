@@ -117,6 +117,9 @@ func (r AuthorizationRequest) SplitScope() []string {
 	return s
 }
 
+// TokenType 엑세스 토큰 타입 자세한 사항은 [RFC 6749] 를 참고
+//
+// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-7.1
 type TokenType string
 
 const (
@@ -124,19 +127,65 @@ const (
 	TokenTypeMac    TokenType = "mac"
 )
 
-type TokenRequest struct {
-	GrantType    GrantType    `form:"grant_type"`
-	Code         string       `form:"code"`
-	Redirect     string       `form:"redirect_uri"`
-	ClientID     string       `form:"client_id"`
-	Secret       string       `form:"secret"`
-	CodeVerifier CodeVerifier `form:"code_verifier"`
-}
+type (
+	TokenRequest struct {
+		GrantType    GrantType    `form:"grant_type"`
+		Code         string       `form:"code"`
+		Redirect     string       `form:"redirect_uri"`
+		ClientID     string       `form:"client_id"`
+		Secret       string       `form:"secret"`
+		CodeVerifier CodeVerifier `form:"code_verifier"`
+	}
 
-type TokenResponse struct {
-	Token     string    `json:"access_token"`
-	Type      TokenType `json:"token_type"`
-	ExpiresIn uint      `json:"expires_in"`
-	Refresh   string    `json:"refresh_token"`
-	Scope     string    `json:"scope"`
-}
+	TokenResponse struct {
+		Token     string    `json:"access_token"`
+		Type      TokenType `json:"token_type"`
+		ExpiresIn uint      `json:"expires_in"`
+		Refresh   string    `json:"refresh_token"`
+		Scope     string    `json:"scope"`
+	}
+)
+
+// TokenTypeHint 토큰 정보 질의시 질의할 토큰의 타입 코드
+// 자세한 사항은 [RFC 7662] 를 참고
+//
+// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
+type TokenTypeHint string
+
+const (
+	TokenHintAccessToken  TokenTypeHint = "access_token"
+	TokenHintRefreshToken TokenTypeHint = "refresh_token"
+)
+
+type (
+	// IntrospectionRequest 토큰 질의 API에서 사용할 요청 폼 [RFC 7662] 를 참고
+	//
+	// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
+	IntrospectionRequest struct {
+		Token         string        `form:"token"`
+		TokenTypeHint TokenTypeHint `form:"token_type_hint"`
+	}
+
+	// Introspection 토큰 질의 API의 응답 폼 [RFC 7662] 를 참고
+	//
+	// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
+	Introspection struct {
+		Active    bool      `json:"active"`
+		Scope     string    `json:"scope"`
+		ClientID  string    `json:"client_id"`
+		Username  string    `json:"username"`
+		TokenType TokenType `json:"token_type"`
+
+		/*************************************/
+		/**************** JWT ****************/
+		/*************************************/
+
+		ExpiresIn uint   `json:"exp"`
+		IssuedAt  uint   `json:"iat"`
+		NotBefore uint   `json:"nbf"`
+		Subject   string `json:"sub"`
+		Audience  string `json:"aud"`
+		Issuer    string `json:"iss"`
+		JTI       string `json:"jti"`
+	}
+)

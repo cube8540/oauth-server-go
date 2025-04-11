@@ -55,11 +55,13 @@ func Routing(route *gin.Engine) {
 	issueFlow := &tokenIssueFlow{
 		authorizationCodeFlow: service.NewAuthorizationCodeFlow(tokenRepository, authCodeService.Retrieve),
 	}
+	tokenService := service.NewTokenService(tokenRepository)
 
 	h := h{
 		clientRetriever: clientService.GetClient,
 		requestConsumer: requestConsumer.consume,
 		tokenIssuer:     issueFlow.generate,
+		introspector:    tokenService.Introspection,
 	}
 
 	group := route.Group("/oauth")
@@ -76,6 +78,7 @@ func Routing(route *gin.Engine) {
 	token.Use(clientFormAuthManage(clientService.Auth))
 	token.Use(newClientAuthRequiredMiddleware())
 	token.POST("", protocol.NewHTTPHandler(h.issueToken))
+	token.POST("/introspect", protocol.NewHTTPHandler(h.introspection))
 }
 
 func noCacheMiddleware(c *gin.Context) {

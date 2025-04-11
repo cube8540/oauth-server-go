@@ -1,6 +1,8 @@
 package service
 
 import (
+	"errors"
+	"gorm.io/gorm"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 )
@@ -10,6 +12,12 @@ type TokenRepository interface {
 	// Save 인자로 받은 엑세스 토큰을 저장하고 저장된 토큰을 fn 함수를 통해 저장된 토큰을 재발행 할 수 있는 리플레시 토큰을 생성하여 저장한다.
 	// 만약 fn이 nil을 반환 했을 경우 엑세스 토큰은 리플레시 토큰을 가지지 않는다.
 	Save(t *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error
+
+	// FindAccessTokenByValue v와 일치하는 엑세스 토큰을 조회하여 반환한다.
+	FindAccessTokenByValue(v string) (*entity.Token, error)
+
+	// FindRefreshTokenByValue v와 일치하는 리플레시 토큰을 조회하여 반환한다.
+	FindRefreshTokenByValue(v string) (*entity.RefreshToken, error)
 }
 
 // AuthCodeConsume 인자로 인가코드를 받아 그 인가코드의 엔티티 반환하고 저장소에서 삭제한다.
@@ -63,4 +71,54 @@ func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 		return nil, nil, err
 	}
 	return token, refresh, nil
+}
+
+type TokenInspector interface {
+	InspectValue() string
+	InspectActive() bool
+	InspectClientID() string
+	InspectUsername() string
+	InspectScope() string
+	InspectIssuedAt() uint
+	InspectExpiredAt() uint
+}
+
+type TokenService struct {
+	repository TokenRepository
+}
+
+func NewTokenService(r TokenRepository) *TokenService {
+	return &TokenService{repository: r}
+}
+
+func (s TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequest) (*oauth.Introspection, error) {
+	var token TokenInspector
+	var err error
+	switch r.TokenTypeHint {
+	case "", oauth.TokenHintAccessToken:
+		token, err = s.repository.FindAccessTokenByValue(r.Token)
+	case oauth.TokenHintRefreshToken:
+		token, err = s.repository.FindRefreshTokenByValue(r.Token)
+	default:
+		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "token_type_hint must be empty or access_token, refresh_token")
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &oauth.Introspection{Active: false}, nil
+	}
+	if token.InspectClientID() != c.ClientID {
+		return nil, oauth.NewErr(oauth.ErrAccessDenied, "token client is different.")
+	}
+	if !token.InspectActive() {
+		return &oauth.Introspection{Active: false}, nil
+	}
+	intro := &oauth.Introspection{
+		Active:    true,
+		Scope:     token.InspectScope(),
+		ClientID:  token.InspectClientID(),
+		Username:  token.InspectUsername(),
+		TokenType: oauth.TokenTypeBearer,
+		ExpiresIn: token.InspectExpiredAt(),
+		IssuedAt:  token.InspectIssuedAt(),
+	}
+	return intro, nil
 }
