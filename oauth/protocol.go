@@ -34,7 +34,6 @@ type GrantType string
 
 const (
 	GrantTypeAuthorizationCode GrantType = "authorization_code"
-	GrantTypeImplicit          GrantType = "implicit"
 	GrantTypePassword          GrantType = "password"
 	GrantTypeClientCredentials GrantType = "client_credentials"
 	GrantTypeRefreshToken      GrantType = "refresh_token"
