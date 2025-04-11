@@ -69,13 +69,11 @@ func NewHTTPHandler(h ...RequestHandler) gin.HandlerFunc {
 	}
 }
 
-func ErrorHandlerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Next()
-		if len(c.Errors) > 0 && !c.Writer.Written() && c.Writer.Status() == http.StatusOK {
-			m := parse(c.Errors.Last())
-			c.JSON(httpStatus(m.ErrCode), m)
-		}
+func ErrorHandlerMiddleware(c *gin.Context) {
+	c.Next()
+	if len(c.Errors) > 0 && !c.Writer.Written() && c.Writer.Status() == http.StatusOK {
+		m := parse(c.Errors.Last())
+		c.JSON(httpStatus(m.ErrCode), m)
 	}
 }
 

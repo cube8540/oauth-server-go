@@ -22,17 +22,15 @@ func StoreLogin(c *gin.Context, sl *SessionLogin) error {
 	return s.Save()
 }
 
-func Authentication() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		v := session.Get(SessionKeyLogin)
-		if serial, ok := v.([]byte); ok {
-			var login SessionLogin
-			_ = json.Unmarshal(serial, &login)
-			c.Set(SessionKeyLogin, &login)
-		}
-		c.Next()
+func Authentication(c *gin.Context) {
+	session := sessions.Default(c)
+	v := session.Get(SessionKeyLogin)
+	if serial, ok := v.([]byte); ok {
+		var login SessionLogin
+		_ = json.Unmarshal(serial, &login)
+		c.Set(SessionKeyLogin, &login)
 	}
+	c.Next()
 }
 
 type AccessDeniedHandler func(c *gin.Context)

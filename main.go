@@ -10,18 +10,20 @@ import (
 	userhandler "oauth-server-go/user/handler"
 )
 
+const applicationSessionID = "g_session_id"
+
 func main() {
 	route := gin.Default()
 	store := conf.GetStore()
 
 	route.LoadHTMLGlob("templates/*")
 
-	route.Use(protocol.ErrorHandlerMiddleware())
-	route.Use(sessions.Sessions("g_session_id", store))
-	route.Use(security.Authentication())
+	route.Use(protocol.ErrorHandlerMiddleware)
+	route.Use(sessions.Sessions(applicationSessionID, store))
+	route.Use(security.Authentication)
 
 	userhandler.Routing(route)
 	oauthhandler.Routing(route)
 
-	_ = route.Run(":" + conf.GetServerPort())
+	_ = route.Run(conf.GetServerPort())
 }
