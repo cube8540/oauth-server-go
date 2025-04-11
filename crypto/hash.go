@@ -1,6 +1,9 @@
 package crypto
 
-import "golang.org/x/crypto/bcrypt"
+import (
+	"errors"
+	"golang.org/x/crypto/bcrypt"
+)
 
 // Hasher 문자열을 받아 해싱하여 반환하는 함수를 정의한 인터페이스
 type Hasher interface {
@@ -29,9 +32,11 @@ func (h BcryptHasher) Hashing(password string) (string, error) {
 
 func (_ BcryptHasher) Compare(hashed, password string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
+	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+		return false, nil
+	}
 	if err != nil {
 		return false, err
-	} else {
-		return true, nil
 	}
+	return true, nil
 }

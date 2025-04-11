@@ -86,7 +86,7 @@ func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) 
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "implicit flow is required state parameter")
 	}
 
-	scopes, err := c.GetScopes(r.SplitScope())
+	scopes, err := c.GetScopes(oauth.SplitScope(r.Scopes))
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +99,48 @@ func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) 
 		return nil
 	})
 	return token, nil
+}
+
+type ResourceOwnerAuthentication func(username, password string) (bool, error)
+
+type ResourceOwnerPasswordCredentialsFlow struct {
+	authentication  ResourceOwnerAuthentication
+	tokenRepository TokenRepository
+}
+
+func NewResourceOwnerPasswordCredentialsFlow(auth ResourceOwnerAuthentication, r TokenRepository) *ResourceOwnerPasswordCredentialsFlow {
+	return &ResourceOwnerPasswordCredentialsFlow{authentication: auth, tokenRepository: r}
+}
+
+func (f ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+	if r.Username == "" || r.Password == "" {
+		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "username, password is required")
+	}
+	auth, err := f.authentication(r.Username, r.Password)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !auth {
+		return nil, nil, oauth.NewErr(oauth.ErrAccessDenied, "failed resource owner authentication")
+	}
+	scopes, err := c.GetScopes(oauth.SplitScope(r.Scope))
+	if err != nil {
+		return nil, nil, err
+	}
+	token := entity.NewToken(entity.UUIDTokenIDGenerator, c)
+	token.Username = r.Username
+	token.Scopes = scopes
+	var refresh *entity.RefreshToken
+	err = f.tokenRepository.Save(token, func(t *entity.Token) *entity.RefreshToken {
+		if c.Type == oauth.ClientTypeConfidential {
+			refresh = entity.NewRefreshToken(t, entity.UUIDTokenIDGenerator)
+		}
+		return refresh
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return token, refresh, nil
 }
 
 // TokenInspector 토큰 상세 정보를 반환하는 인터페이스

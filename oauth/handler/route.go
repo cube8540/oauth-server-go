@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	"oauth-server-go/conf"
 	"oauth-server-go/crypto"
@@ -10,6 +11,10 @@ import (
 	"oauth-server-go/oauth/service"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
+	"oauth-server-go/user"
+	"oauth-server-go/user/model"
+	userrepo "oauth-server-go/user/repository"
+	usersrv "oauth-server-go/user/service"
 )
 
 type (
@@ -20,6 +25,7 @@ type (
 
 	tokenIssueFlow struct {
 		authorizationCodeFlow *service.AuthorizationCodeFlow
+		resourceOwnerFlow     *service.ResourceOwnerPasswordCredentialsFlow
 	}
 )
 
@@ -38,8 +44,31 @@ func (f tokenIssueFlow) generate(c *entity.Client, r *oauth.TokenRequest) (*enti
 	switch r.GrantType {
 	case oauth.GrantTypeAuthorizationCode:
 		return f.authorizationCodeFlow.Generate(c, r)
+	case oauth.GrantTypePassword:
+		return f.resourceOwnerFlow.Generate(c, r)
 	default:
 		return nil, nil, oauth.NewErr(oauth.ErrUnsupportedGrantType, "unsupported")
+	}
+}
+
+func adaptAuthentication() service.ResourceOwnerAuthentication {
+	accountRepository := userrepo.NewAccountRepository(conf.GetDB())
+	authService := usersrv.NewAuthService(accountRepository, crypto.NewBcryptHasher())
+
+	return func(u, p string) (bool, error) {
+		_, err := authService.Login(&model.Login{
+			Username: u,
+			Password: p,
+		})
+		if errors.Is(err, user.ErrAccountNotFound) ||
+			errors.Is(err, user.ErrPasswordNotMatch) ||
+			errors.Is(err, user.ErrAccountLocked) {
+			return false, oauth.NewErr(oauth.ErrAccessDenied, "failed resource owner credentials")
+		}
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 }
 
@@ -52,10 +81,15 @@ func Routing(route *gin.Engine) {
 	tokenService := service.NewTokenService(tokenRepository)
 	authCodeService := service.NewAuthCodeService(authCodeRepository)
 	implicitFlow := service.NewImplicitFlow(tokenRepository)
+	resourceOwnerFlow := service.NewResourceOwnerPasswordCredentialsFlow(adaptAuthentication(), tokenRepository)
 
-	requestConsumer := &authorizationRequestFlow{authCodeService: authCodeService, implicitFlow: implicitFlow}
+	requestConsumer := &authorizationRequestFlow{
+		authCodeService: authCodeService,
+		implicitFlow:    implicitFlow,
+	}
 	issueFlow := &tokenIssueFlow{
 		authorizationCodeFlow: service.NewAuthorizationCodeFlow(tokenRepository, authCodeService.Retrieve),
+		resourceOwnerFlow:     resourceOwnerFlow,
 	}
 
 	h := h{

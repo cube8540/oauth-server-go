@@ -23,8 +23,21 @@ code_verifier = IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2
 
 ###
 
+POST http://localhost:8080/oauth/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic test_client password
+
+grant_type=password &
+username=test_id &
+password=password &
+scope=read write
+
+####
+
 POST http://localhost:8080/oauth/token/introspect
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
-token=4ae6cc60-0cc4-4879-b5c1-885934ffc357&token_type_hint=access_token
+token=6cf1c6af-2582-4ada-a59a-3974848eed54&token_type_hint=refresh_token
+
+###

@@ -107,16 +107,6 @@ type AuthorizationRequest struct {
 	CodeChallengeMethod CodeChallengeMethod `form:"code_challenge_method"`
 }
 
-// SplitScope 현제 저장되어 있는 string 타입의 문자열을 공백(" ")으로 나누어 반환한다.
-func (r AuthorizationRequest) SplitScope() []string {
-	var s []string
-	if r.Scopes == "" {
-		return s
-	}
-	s = strings.Split(r.Scopes, " ")
-	return s
-}
-
 // TokenType 엑세스 토큰 타입 자세한 사항은 [RFC 6749] 를 참고
 //
 // [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-7.1
@@ -127,14 +117,27 @@ const (
 	TokenTypeMac    TokenType = "mac"
 )
 
+// 토큰 발행을 요청하고 발급 된 토큰을 응답 받을 때 사용할 폼으로 [AuthorizationCodeGrant], [ResourceOwnerPasswordCredentialsGrant]
+// [ClientCredentialsGrant], [Refresh] 인가 방식에서 사용 중
+//
+// [AuthorizationCodeGrant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.3
+// [ResourceOwnerPasswordCredentialsGrant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.3.2
+// [ClientCredentialsGrant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.2
+// [Refresh]: https://datatracker.ietf.org/doc/html/rfc6749#section-6
 type (
 	TokenRequest struct {
-		GrantType    GrantType    `form:"grant_type"`
+		GrantType GrantType `form:"grant_type"`
+
 		Code         string       `form:"code"`
 		Redirect     string       `form:"redirect_uri"`
-		ClientID     string       `form:"client_id"`
-		Secret       string       `form:"secret"`
 		CodeVerifier CodeVerifier `form:"code_verifier"`
+
+		Username string `form:"username"`
+		Password string `form:"password"`
+		Scope    string `form:"scope"`
+
+		ClientID string `form:"client_id"`
+		Secret   string `form:"secret"`
 	}
 
 	TokenResponse struct {
@@ -176,10 +179,6 @@ type (
 		Username  string    `json:"username,omitempty"`
 		TokenType TokenType `json:"token_type,omitempty"`
 
-		/*************************************/
-		/**************** JWT ****************/
-		/*************************************/
-
 		ExpiresIn uint   `json:"exp,omitempty"`
 		IssuedAt  uint   `json:"iat,omitempty"`
 		NotBefore uint   `json:"nbf,omitempty"`
@@ -189,3 +188,15 @@ type (
 		JTI       string `json:"jti,omitempty"`
 	}
 )
+
+// SplitScope 현제 저장되어 있는 string 타입의 문자열을 공백(" ")으로 나누어 반환한다. [RFC 6749]
+//
+// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
+func SplitScope(src string) []string {
+	var s []string
+	if src == "" {
+		return s
+	}
+	s = strings.Split(src, " ")
+	return s
+}
