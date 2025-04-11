@@ -86,7 +86,7 @@ func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) 
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "implicit flow is required state parameter")
 	}
 
-	scopes, err := c.GetScopes(oauth.SplitScope(r.Scopes))
+	scopes, err := c.Scopes.GetAll(oauth.SplitScope(r.Scopes))
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func (f ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oaut
 	if !auth {
 		return nil, nil, oauth.NewErr(oauth.ErrAccessDenied, "failed resource owner authentication")
 	}
-	scopes, err := c.GetScopes(oauth.SplitScope(r.Scope))
+	scopes, err := c.Scopes.GetAll(oauth.SplitScope(r.Scope))
 	if err != nil {
 		return nil, nil, err
 	}

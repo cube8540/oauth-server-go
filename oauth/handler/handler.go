@@ -79,7 +79,7 @@ func (h h) authorize(c *gin.Context) error {
 		return routeWrap(oauth.NewErr(oauth.ErrUnsupportedResponseType, "unsupported"), &r, to)
 	}
 
-	scopes, err := client.GetScopes(oauth.SplitScope(r.Scopes))
+	scopes, err := client.Scopes.GetAll(oauth.SplitScope(r.Scopes))
 	if err != nil {
 		return routeWrap(err, &r, to)
 	}

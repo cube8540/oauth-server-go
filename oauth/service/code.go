@@ -30,7 +30,7 @@ func NewAuthCodeService(r AuthCodeRepository) *AuthCodeService {
 }
 
 func (s AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error) {
-	scopes, err := c.GetScopes(oauth.SplitScope(r.Scopes))
+	scopes, err := c.Scopes.GetAll(oauth.SplitScope(r.Scopes))
 	if err != nil {
 		return nil, err
 	}
