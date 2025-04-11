@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"errors"
 	"gorm.io/gorm"
+	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 )
 
@@ -47,6 +49,9 @@ func (r TokenRepository) Save(t *entity.Token, fn func(t *entity.Token) *entity.
 func (r TokenRepository) FindAccessTokenByValue(v string) (*entity.Token, error) {
 	var t entity.Token
 	err := r.db.Preload("Scopes").Joins("Client").Where(&entity.Token{Value: v}).First(&t).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "token is not found")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -56,10 +61,37 @@ func (r TokenRepository) FindAccessTokenByValue(v string) (*entity.Token, error)
 func (r TokenRepository) FindRefreshTokenByValue(v string) (*entity.RefreshToken, error) {
 	var t entity.RefreshToken
 	err := r.db.Joins("Token").Joins("Token.Client").Preload("Token.Scopes").Where(&entity.RefreshToken{Value: v}).First(&t).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "refresh token is not found")
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &t, nil
+}
+
+func (r TokenRepository) Refresh(oldRefreshToken *entity.RefreshToken, newToken *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error {
+	return r.db.Transaction(func(db *gorm.DB) error {
+		oldToken := oldRefreshToken.Token
+		if err := db.Delete(oldRefreshToken).Error; err != nil {
+			return err
+		}
+		if err := db.Model(&oldToken).Association("Scopes").Clear(); err != nil {
+			return err
+		}
+		if err := db.Delete(oldToken).Error; err != nil {
+			return err
+		}
+		if err := db.Save(newToken).Error; err != nil {
+			return err
+		}
+		if nrt := fn(newToken); nrt != nil {
+			if err := db.Save(nrt).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 type AuthCodeRepository struct {

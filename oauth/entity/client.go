@@ -54,7 +54,7 @@ type Client struct {
 	OwnerID      string
 	Redirects    sql.Strings   `gorm:"column:redirect_uris"`
 	Scopes       GrantedScopes `gorm:"many2many:users.oauth2_client_scope;joinForeignKey:client_id;joinReferences:scope_id"`
-	RegisteredAt time.Time     `gorm:"column:reg_dt"`
+	RegisteredAt time.Time     `gorm:"column:reg_at"`
 }
 
 func (c *Client) RedirectURL(url string) (string, error) {

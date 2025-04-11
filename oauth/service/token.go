@@ -1,15 +1,14 @@
 package service
 
 import (
-	"errors"
-	"gorm.io/gorm"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
+	"time"
 )
 
 // TokenRepository OAuth2 토큰 저장소
 type TokenRepository interface {
-	// Save 인자로 받은 엑세스 토큰을 저장하고 저장된 토큰을 fn 함수를 통해 저장된 토큰을 재발행 할 수 있는 리플레시 토큰을 생성하여 저장한다.
+	// Save 인자로 받은 엑세스 토큰을 저장하고 fn 함수를 통해 토큰을 재발행 할 수 있는 리플레시 토큰을 생성하여 저장한다.
 	// 만약 fn이 nil을 반환 했을 경우 엑세스 토큰은 리플레시 토큰을 가지지 않는다.
 	Save(t *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error
 
@@ -18,6 +17,10 @@ type TokenRepository interface {
 
 	// FindRefreshTokenByValue v와 일치하는 리플레시 토큰을 조회하여 반환한다.
 	FindRefreshTokenByValue(v string) (*entity.RefreshToken, error)
+
+	// Refresh 기존의 oldRefreshToken는 삭제 하고 신규 newToken을 저장한다 그 후 fn 함수를 통해 newToken을 재발행 할 수 있는 리플레시 토큰을 생성하여 저장한다.
+	// 만약 fn이 nil을 반환 했을 경우 newToken은 리플레시 토큰을 가지지 않는다.
+	Refresh(oldRefreshToken *entity.RefreshToken, newToken *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error
 }
 
 // AuthCodeConsume 인자로 인가코드를 받아 그 인가코드의 엔티티 반환하고 저장소에서 삭제한다.
@@ -143,6 +146,51 @@ func (f ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oaut
 	return token, refresh, nil
 }
 
+type RefreshFlow struct {
+	tokenRepository TokenRepository
+}
+
+func NewRefreshFlow(r TokenRepository) *RefreshFlow {
+	return &RefreshFlow{tokenRepository: r}
+}
+
+func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+	if r.RefreshToken == "" {
+		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "refresh_token is required")
+	}
+	rt, err := f.tokenRepository.FindRefreshTokenByValue(r.RefreshToken)
+	if err != nil {
+		return nil, nil, err
+	}
+	if rt.InspectClientID() != c.ClientID {
+		return nil, nil, oauth.NewErr(oauth.ErrAccessDenied, "refresh token client is different")
+	}
+	if rt.ExpiredAt.Before(time.Now()) {
+		return nil, nil, oauth.NewErr(oauth.ErrInvalidGrant, "refresh token is invalid")
+	}
+	var scopes entity.GrantedScopes
+	if r.Scope != "" {
+		scopes, err = c.Scopes.GetAll(oauth.SplitScope(r.Scope))
+	} else {
+		scopes = rt.Token.Scopes
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	newToken := entity.NewToken(entity.UUIDTokenIDGenerator, c)
+	newToken.Username = rt.Token.Username
+	newToken.Scopes = scopes
+	var newRefreshToken *entity.RefreshToken
+	err = f.tokenRepository.Refresh(rt, newToken, func(t *entity.Token) *entity.RefreshToken {
+		newRefreshToken = entity.NewRefreshToken(t, entity.UUIDTokenIDGenerator)
+		return newRefreshToken
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return newToken, newRefreshToken, nil
+}
+
 // TokenInspector 토큰 상세 정보를 반환하는 인터페이스
 type TokenInspector interface {
 
@@ -193,8 +241,8 @@ func (s TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequ
 	default:
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "token_type_hint must be empty or access_token, refresh_token")
 	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &oauth.Introspection{Active: false}, nil
+	if err != nil {
+		return nil, err
 	}
 	if token.InspectClientID() != c.ClientID {
 		return nil, oauth.NewErr(oauth.ErrAccessDenied, "token client is different.")

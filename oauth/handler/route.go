@@ -26,6 +26,7 @@ type (
 	tokenIssueFlow struct {
 		authorizationCodeFlow *service.AuthorizationCodeFlow
 		resourceOwnerFlow     *service.ResourceOwnerPasswordCredentialsFlow
+		refreshFlow           *service.RefreshFlow
 	}
 )
 
@@ -46,6 +47,8 @@ func (f tokenIssueFlow) generate(c *entity.Client, r *oauth.TokenRequest) (*enti
 		return f.authorizationCodeFlow.Generate(c, r)
 	case oauth.GrantTypePassword:
 		return f.resourceOwnerFlow.Generate(c, r)
+	case oauth.GrantTypeRefreshToken:
+		return f.refreshFlow.Generate(c, r)
 	default:
 		return nil, nil, oauth.NewErr(oauth.ErrUnsupportedGrantType, "unsupported")
 	}
@@ -80,16 +83,15 @@ func Routing(route *gin.Engine) {
 	clientService := service.NewClientService(clientRepository, crypto.NewBcryptHasher())
 	tokenService := service.NewTokenService(tokenRepository)
 	authCodeService := service.NewAuthCodeService(authCodeRepository)
-	implicitFlow := service.NewImplicitFlow(tokenRepository)
-	resourceOwnerFlow := service.NewResourceOwnerPasswordCredentialsFlow(adaptAuthentication(), tokenRepository)
 
 	requestConsumer := &authorizationRequestFlow{
 		authCodeService: authCodeService,
-		implicitFlow:    implicitFlow,
+		implicitFlow:    service.NewImplicitFlow(tokenRepository),
 	}
 	issueFlow := &tokenIssueFlow{
 		authorizationCodeFlow: service.NewAuthorizationCodeFlow(tokenRepository, authCodeService.Retrieve),
-		resourceOwnerFlow:     resourceOwnerFlow,
+		resourceOwnerFlow:     service.NewResourceOwnerPasswordCredentialsFlow(adaptAuthentication(), tokenRepository),
+		refreshFlow:           service.NewRefreshFlow(tokenRepository),
 	}
 
 	h := h{

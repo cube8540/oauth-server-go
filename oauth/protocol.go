@@ -125,18 +125,16 @@ const (
 // [Refresh]: https://datatracker.ietf.org/doc/html/rfc6749#section-6
 type (
 	TokenRequest struct {
-		GrantType GrantType `form:"grant_type"`
-
+		GrantType    GrantType    `form:"grant_type"`
 		Code         string       `form:"code"`
 		Redirect     string       `form:"redirect_uri"`
 		CodeVerifier CodeVerifier `form:"code_verifier"`
-
-		Username string `form:"username"`
-		Password string `form:"password"`
-		Scope    string `form:"scope"`
-
-		ClientID string `form:"client_id"`
-		Secret   string `form:"secret"`
+		Username     string       `form:"username"`
+		Password     string       `form:"password"`
+		RefreshToken string       `form:"refresh_token"`
+		Scope        string       `form:"scope"`
+		ClientID     string       `form:"client_id"`
+		Secret       string       `form:"secret"`
 	}
 
 	TokenResponse struct {

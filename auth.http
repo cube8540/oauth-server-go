@@ -17,7 +17,7 @@ Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
 grant_type = authorization_code &
-code = 041d98db-4a1f-4712-9d59-e3e869977865 &
+code = b1fbfa13-30fa-4ba6-8b56-e618eb5cb2ed &
 redirect_uri = http://localhost:8081 &
 code_verifier = IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2
 
@@ -34,10 +34,19 @@ scope=read write
 
 ####
 
+POST http://localhost:8080/oauth/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic test_client password
+
+grant_type=refresh_token&
+refresh_token=fafeb7c3-44cc-4b87-ad82-d9f061277821
+
+###
+
 POST http://localhost:8080/oauth/token/introspect
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
-token=6cf1c6af-2582-4ada-a59a-3974848eed54&token_type_hint=refresh_token
+token=b1c5534d-ee49-4e03-a48c-e74ac266ff39&token_type_hint=refresh_token
 
 ###
