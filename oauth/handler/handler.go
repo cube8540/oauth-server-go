@@ -130,7 +130,7 @@ func (h h) approval(c *gin.Context) error {
 		return routeWrap(err, origin, to)
 	}
 
-	enhancer := chaining(authorizationCodeFlow)
+	enhancer := chaining(authorizationCodeFlow, implicitFlow)
 	if err = enhancer(origin, src, to); err != nil {
 		return routeWrap(err, origin, to)
 	}

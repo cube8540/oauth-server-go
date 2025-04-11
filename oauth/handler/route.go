@@ -15,6 +15,7 @@ import (
 type (
 	authorizationRequestFlow struct {
 		authCodeService *service.AuthCodeService
+		implicitFlow    *service.ImplicitFlow
 	}
 
 	tokenIssueFlow struct {
@@ -26,6 +27,8 @@ func (f authorizationRequestFlow) consume(c *entity.Client, r *oauth.Authorizati
 	switch r.ResponseType {
 	case oauth.ResponseTypeCode:
 		return f.authCodeService.New(c, r)
+	case oauth.ResponseTypeToken:
+		return f.implicitFlow.Generate(c, r)
 	default:
 		return nil, oauth.NewErr(oauth.ErrUnsupportedResponseType, "unsupported")
 	}
@@ -42,20 +45,18 @@ func (f tokenIssueFlow) generate(c *entity.Client, r *oauth.TokenRequest) (*enti
 
 func Routing(route *gin.Engine) {
 	clientRepository := repository.NewClientRepository(conf.GetDB())
-	clientService := service.NewClientService(clientRepository, crypto.NewBcryptHasher())
-
-	authCodeRepository := repository.NewAuthCodeRepository(conf.GetDB())
-	authCodeService := service.NewAuthCodeService(authCodeRepository)
-
-	requestConsumer := &authorizationRequestFlow{
-		authCodeService: authCodeService,
-	}
-
 	tokenRepository := repository.NewTokenRepository(conf.GetDB())
+	authCodeRepository := repository.NewAuthCodeRepository(conf.GetDB())
+
+	clientService := service.NewClientService(clientRepository, crypto.NewBcryptHasher())
+	tokenService := service.NewTokenService(tokenRepository)
+	authCodeService := service.NewAuthCodeService(authCodeRepository)
+	implicitFlow := service.NewImplicitFlow(tokenRepository)
+
+	requestConsumer := &authorizationRequestFlow{authCodeService: authCodeService, implicitFlow: implicitFlow}
 	issueFlow := &tokenIssueFlow{
 		authorizationCodeFlow: service.NewAuthorizationCodeFlow(tokenRepository, authCodeService.Retrieve),
 	}
-	tokenService := service.NewTokenService(tokenRepository)
 
 	h := h{
 		clientRetriever: clientService.GetClient,

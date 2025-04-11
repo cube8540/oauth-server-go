@@ -42,6 +42,14 @@ func (r *Range) InspectExpiredAt() uint {
 	return 0
 }
 
+func newRange(expires time.Duration) Range {
+	now := time.Now()
+	return Range{
+		IssuedAt:  now,
+		ExpiredAt: now.Add(expires),
+	}
+}
+
 // Token 토큰
 type Token struct {
 	ID       uint
@@ -77,17 +85,21 @@ func (t Token) TableName() string {
 	return "users.oauth2_access_token"
 }
 
-func NewToken(gen TokenIDGenerator, c *AuthorizationCode) *Token {
-	now := time.Now()
+func NewTokenWithCode(gen TokenIDGenerator, c *AuthorizationCode) *Token {
 	return &Token{
 		Value:    gen(),
 		ClientID: c.ClientID,
 		Username: c.Username,
 		Scopes:   c.Scopes,
-		Range: Range{
-			IssuedAt:  now,
-			ExpiredAt: now.Add(tokenExpiresMinute),
-		},
+		Range:    newRange(tokenExpiresMinute),
+	}
+}
+
+func NewToken(gen TokenIDGenerator, c *Client) *Token {
+	return &Token{
+		Value:    gen(),
+		ClientID: c.ID,
+		Range:    newRange(tokenExpiresMinute),
 	}
 }
 
@@ -121,13 +133,9 @@ func (t RefreshToken) TableName() string {
 }
 
 func NewRefreshToken(t *Token, gen TokenIDGenerator) *RefreshToken {
-	now := time.Now()
 	return &RefreshToken{
 		Value:   gen(),
 		TokenID: t.ID,
-		Range: Range{
-			IssuedAt:  now,
-			ExpiredAt: now.Add(tokenExpiresMinute),
-		},
+		Range:   newRange(refreshExpiresMinute),
 	}
 }
