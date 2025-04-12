@@ -110,16 +110,15 @@
     }
 
     function login(username, password) {
-      const url = window.location.origin + "/auth/login"
       const body = { username, password }
 
       const http = new XMLHttpRequest()
-      http.open('POST', url)
+      http.open('POST', "/auth/login")
       http.setRequestHeader('Content-Type', 'application/json')
 
       http.onreadystatechange = function() {
         if (http.readyState === http.DONE && http.status === 200) {
-          alert(http.responseText)
+          window.location="/oauth/manage/tokens"
         }
       }
       http.send(JSON.stringify(body))

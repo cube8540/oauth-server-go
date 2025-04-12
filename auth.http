@@ -8,22 +8,22 @@ Content-Type: "application/json"
 
 ###
 
-GET http://localhost:8080/oauth/authorize?response_type=code&client_id=test_client&state=k3VADnxT2ScEz16VqDawrDSjHUG2WqcALiZSSCEpgAN&code_challenge=efe_rqmpENryXVEZv63WKXAg4p6YJUiDJoZJBu8JuVE=&code_challenge_method=S256
+GET http://localhost:8080/oauth/auth/authorize?response_type=code&client_id=test_client&state=k3VADnxT2ScEz16VqDawrDSjHUG2WqcALiZSSCEpgAN&code_challenge=efe_rqmpENryXVEZv63WKXAg4p6YJUiDJoZJBu8JuVE=&code_challenge_method=S256
 
 ###
 
-POST http://localhost:8080/oauth/token
+POST http://localhost:8080/oauth/auth/token
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
 grant_type = authorization_code &
-code = 7e945361-14fc-40d7-8041-3d4d3d64ee2c &
+code = ddaf97e6-bd16-4251-b8f0-2727ce42d433 &
 redirect_uri = http://localhost:8081 &
 code_verifier = IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2
 
 ###
 
-POST http://localhost:8080/oauth/token
+POST http://localhost:8080/oauth/auth/token
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
@@ -34,7 +34,7 @@ scope=read write
 
 ####
 
-POST http://localhost:8080/oauth/token
+POST http://localhost:8080/oauth/auth/token
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
@@ -43,7 +43,7 @@ refresh_token=6a257edf-5a35-4fe8-9130-57608e999d93
 
 ###
 
-POST http://localhost:8080/oauth/token
+POST http://localhost:8080/oauth/auth/token
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
@@ -51,7 +51,7 @@ grant_type=client_credentials
 
 ###
 
-POST http://localhost:8080/oauth/token/introspect
+POST http://localhost:8080/oauth/auth/token/introspect
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 

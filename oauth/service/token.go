@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 	"time"
@@ -287,4 +288,43 @@ func (s TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequ
 		IssuedAt:  token.InspectIssuedAt(),
 	}
 	return intro, nil
+}
+
+// TokenManagementRepository OAuth2 토큰 관리용 저장소
+type TokenManagementRepository interface {
+	// FindAccessTokenByUsername username으로 발급된 엑세스 토큰을 반환한다.
+	FindAccessTokenByUsername(u string) ([]entity.Token, error)
+
+	// FindAccessTokenByValue v와 일치하는 엑세스 토큰을 조회하여 반환한다.
+	FindAccessTokenByValue(v string) (*entity.Token, error)
+
+	// FindRefreshTokenByTokenID 엑세스 토큰을 리플레시할 수 있는 리플레시 토큰을 검색하여 반환한다.
+	FindRefreshTokenByTokenID(t uint) (*entity.RefreshToken, error)
+
+	// Delete 입력 받은 토큰들을 모두 삭제한다.
+	Delete(t *entity.Token, rt *entity.RefreshToken) error
+}
+
+type TokenManagementService struct {
+	repository TokenManagementRepository
+}
+
+func NewTokenManagementService(r TokenManagementRepository) *TokenManagementService {
+	return &TokenManagementService{repository: r}
+}
+
+func (s TokenManagementService) GetGrantedTokens(username string) ([]entity.Token, error) {
+	return s.repository.FindAccessTokenByUsername(username)
+}
+
+func (s TokenManagementService) Delete(t string) error {
+	token, err := s.repository.FindAccessTokenByValue(t)
+	if err != nil {
+		return err
+	}
+	rt, err := s.repository.FindRefreshTokenByTokenID(token.ID)
+	if err != nil && !errors.Is(err, oauth.ErrTokenNotFound) {
+		return err
+	}
+	return s.repository.Delete(token, rt)
 }

@@ -105,7 +105,7 @@ func Routing(route *gin.Engine) {
 		introspector:    tokenService.Introspection,
 	}
 
-	group := route.Group("/oauth")
+	group := route.Group("/oauth/auth")
 	group.Use(noCacheMiddleware)
 	group.Use(ErrorHandleMiddleware())
 
@@ -120,6 +120,15 @@ func Routing(route *gin.Engine) {
 	token.Use(newClientAuthRequiredMiddleware())
 	token.POST("", protocol.NewHTTPHandler(h.issueToken))
 	token.POST("/introspect", protocol.NewHTTPHandler(h.introspection))
+
+	m := m{
+		service: service.NewTokenManagementService(tokenRepository),
+	}
+
+	manageGroup := route.Group("/oauth/manage")
+	manageGroup.Use(security.Authenticated(security.AccessDeniedRedirect("/auth/login")))
+	manageGroup.GET("/tokens", protocol.NewHTTPHandler(m.tokenManagement))
+	manageGroup.DELETE("/tokens/:tokenValue", protocol.NewHTTPHandler(m.deleteToken))
 }
 
 func noCacheMiddleware(c *gin.Context) {
@@ -129,7 +138,6 @@ func noCacheMiddleware(c *gin.Context) {
 func newAccessDeniedHandler() security.AccessDeniedHandler {
 	return func(c *gin.Context) {
 		_ = c.Error(oauth.NewErr(oauth.ErrAccessDenied, "resource owner login is required"))
-		c.Abort()
 	}
 }
 

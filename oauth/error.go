@@ -1,6 +1,9 @@
 package oauth
 
-import "net/http"
+import (
+	"errors"
+	"net/http"
+)
 
 const (
 	ErrInvalidRequest          = "invalid_request"
@@ -13,6 +16,10 @@ const (
 	ErrInvalidClient           = "invalid_client"
 	ErrInvalidGrant            = "invalid_grant"
 	ErrUnsupportedGrantType    = "unsupported_grant_type"
+)
+
+var (
+	ErrTokenNotFound = errors.New("token not found")
 )
 
 type Error struct {

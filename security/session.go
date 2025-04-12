@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"net/http"
 )
 
 const SessionKeyLogin = "sessions/login"
@@ -44,5 +45,11 @@ func Authenticated(h AccessDeniedHandler) gin.HandlerFunc {
 		} else {
 			c.Next()
 		}
+	}
+}
+
+func AccessDeniedRedirect(to string) AccessDeniedHandler {
+	return func(c *gin.Context) {
+		c.Redirect(http.StatusFound, to)
 	}
 }

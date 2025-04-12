@@ -97,6 +97,37 @@ func (r TokenRepository) Refresh(oldRefreshToken *entity.RefreshToken, newToken 
 	})
 }
 
+func (r TokenRepository) FindAccessTokenByUsername(u string) ([]entity.Token, error) {
+	var tokens []entity.Token
+	if err := r.db.Preload("Scopes").Joins("Client").Where(&entity.Token{Username: u}).Find(&tokens).Error; err != nil {
+		return nil, err
+	}
+	return tokens, nil
+}
+
+func (r TokenRepository) FindRefreshTokenByTokenID(id uint) (*entity.RefreshToken, error) {
+	var rt *entity.RefreshToken
+	err := r.db.Where(&entity.RefreshToken{TokenID: id}).First(&rt).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, oauth.ErrTokenNotFound
+	}
+	return rt, nil
+}
+
+func (r TokenRepository) Delete(t *entity.Token, rt *entity.RefreshToken) error {
+	return r.db.Transaction(func(db *gorm.DB) error {
+		if rt != nil {
+			if err := db.Delete(rt).Error; err != nil {
+				return err
+			}
+		}
+		if err := db.Model(&t).Association("Scopes").Clear(); err != nil {
+			return nil
+		}
+		return db.Delete(t).Error
+	})
+}
+
 type AuthCodeRepository struct {
 	db *gorm.DB
 }

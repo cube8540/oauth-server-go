@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
+	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	"strings"
 )
@@ -189,6 +190,57 @@ func (h h) introspection(c *gin.Context) error {
 		return err
 	}
 	c.JSON(http.StatusOK, intro)
+	return nil
+}
+
+type TokenManagementService interface {
+	GetGrantedTokens(username string) ([]entity.Token, error)
+
+	Delete(v string) error
+}
+
+type m struct {
+	service TokenManagementService
+}
+
+func (m m) tokenManagement(c *gin.Context) error {
+	switch c.GetHeader("Accept") {
+	case "application/json":
+		return m.getTokens(c)
+	default:
+		return m.tokenManagementPage(c)
+	}
+}
+
+func (m m) tokenManagementPage(c *gin.Context) error {
+	c.HTML(http.StatusOK, "manage-tokens.html", gin.H{})
+	return nil
+}
+
+func (m m) getTokens(c *gin.Context) error {
+	loginValue, _ := c.Get(security.SessionKeyLogin)
+	login, _ := loginValue.(*security.SessionLogin)
+
+	tokens, err := m.service.GetGrantedTokens(login.Username)
+	if err != nil {
+		return err
+	}
+
+	var details []TokenDetails
+	for _, token := range tokens {
+		details = append(details, NewTokenDetails(&token))
+	}
+
+	c.JSON(http.StatusOK, protocol.NewOK(details))
+	return nil
+}
+
+func (m m) deleteToken(c *gin.Context) error {
+	tokenValue := c.Param("tokenValue")
+	if err := m.service.Delete(tokenValue); err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, protocol.NewOK("ok"))
 	return nil
 }
 
