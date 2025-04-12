@@ -138,11 +138,11 @@ type (
 	}
 
 	TokenResponse struct {
-		Token     string    `json:"access_token"`
-		Type      TokenType `json:"token_type"`
-		ExpiresIn uint      `json:"expires_in"`
-		Refresh   string    `json:"refresh_token"`
-		Scope     string    `json:"scope"`
+		Token     string    `json:"access_token,omitempty"`
+		Type      TokenType `json:"token_type,omitempty"`
+		ExpiresIn uint      `json:"expires_in,omitempty"`
+		Refresh   string    `json:"refresh_token,omitempty"`
+		Scope     string    `json:"scope,omitempty"`
 	}
 )
 

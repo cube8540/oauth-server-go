@@ -43,10 +43,18 @@ refresh_token=fafeb7c3-44cc-4b87-ad82-d9f061277821
 
 ###
 
+POST http://localhost:8080/oauth/token
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic test_client password
+
+grant_type=client_credentials
+
+###
+
 POST http://localhost:8080/oauth/token/introspect
 Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
-token=b1c5534d-ee49-4e03-a48c-e74ac266ff39&token_type_hint=refresh_token
+token=722f4e31-5661-4943-8954-f608a0646481&token_type_hint=access_token
 
 ###

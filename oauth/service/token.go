@@ -191,6 +191,33 @@ func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.
 	return newToken, newRefreshToken, nil
 }
 
+type ClientCredentialsFlow struct {
+	tokenRepository TokenRepository
+}
+
+func NewClientCredentialsFlow(r TokenRepository) *ClientCredentialsFlow {
+	return &ClientCredentialsFlow{tokenRepository: r}
+}
+
+func (f ClientCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+	if c.Type == oauth.ClientTypePublic {
+		return nil, nil, oauth.NewErr(oauth.ErrUnauthorizedClient, "client cannot have been granted token")
+	}
+	scopes, err := c.Scopes.GetAll(oauth.SplitScope(r.Scope))
+	if err != nil {
+		return nil, nil, err
+	}
+	newToken := entity.NewToken(entity.UUIDTokenIDGenerator, c)
+	newToken.Scopes = scopes
+	err = f.tokenRepository.Save(newToken, func(t *entity.Token) *entity.RefreshToken {
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return newToken, nil, nil
+}
+
 // TokenInspector 토큰 상세 정보를 반환하는 인터페이스
 type TokenInspector interface {
 
