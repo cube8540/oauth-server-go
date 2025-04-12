@@ -18,6 +18,9 @@ func NewClientRepository(db *gorm.DB) *ClientRepository {
 func (r ClientRepository) FindByClientID(id string) (*entity.Client, error) {
 	var c entity.Client
 	err := r.db.Preload("Scopes").Where(&entity.Client{ClientID: id}).First(&c).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "client is not found")
+	}
 	if err != nil {
 		return nil, err
 	}
