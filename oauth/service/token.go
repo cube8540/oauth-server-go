@@ -160,6 +160,9 @@ func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "refresh_token is required")
 	}
 	rt, err := f.tokenRepository.FindRefreshTokenByValue(r.RefreshToken)
+	if errors.Is(err, oauth.ErrTokenNotFound) {
+		return nil, nil, oauth.NewErr(oauth.ErrInvalidGrant, "refresh token is not found")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -268,6 +271,9 @@ func (s TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequ
 		token, err = s.repository.FindRefreshTokenByValue(r.Token)
 	default:
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "token_type_hint must be empty or access_token, refresh_token")
+	}
+	if errors.Is(err, oauth.ErrTokenNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "token is not found.")
 	}
 	if err != nil {
 		return nil, err

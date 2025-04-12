@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
 )
@@ -46,6 +47,9 @@ func (s AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*
 
 func (s AuthCodeService) Retrieve(code string) (*entity.AuthorizationCode, error) {
 	authCode, err := s.repository.FindByCode(code)
+	if errors.Is(err, oauth.ErrAuthorizationCodeNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "authorization code is not found")
+	}
 	if err != nil {
 		return nil, err
 	}

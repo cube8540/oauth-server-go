@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -64,6 +65,9 @@ func (h h) authorize(c *gin.Context) error {
 	}
 
 	client, err := h.clientRetriever(r.ClientID)
+	if errors.Is(err, oauth.ErrClientNotFound) {
+		return oauth.NewErr(oauth.ErrInvalidClient, "client is not found")
+	}
 	if err != nil {
 		return err
 	}
@@ -107,6 +111,9 @@ func (h h) approval(c *gin.Context) error {
 		return oauth.NewErr(oauth.ErrInvalidRequest, "origin request is not found")
 	}
 	client, err := h.clientRetriever(origin.ClientID)
+	if errors.Is(err, oauth.ErrClientNotFound) {
+		return oauth.NewErr(oauth.ErrInvalidClient, "client is not found")
+	}
 	if err != nil {
 		fmt.Printf("%v", err)
 		return oauth.NewErr(oauth.ErrServerError, "unknown error")

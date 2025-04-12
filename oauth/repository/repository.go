@@ -19,7 +19,7 @@ func (r ClientRepository) FindByClientID(id string) (*entity.Client, error) {
 	var c entity.Client
 	err := r.db.Preload("Scopes").Where(&entity.Client{ClientID: id}).First(&c).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "client is not found")
+		return nil, oauth.ErrClientNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (r TokenRepository) FindAccessTokenByValue(v string) (*entity.Token, error)
 	var t entity.Token
 	err := r.db.Preload("Scopes").Joins("Client").Where(&entity.Token{Value: v}).First(&t).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "token is not found")
+		return nil, oauth.ErrTokenNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (r TokenRepository) FindRefreshTokenByValue(v string) (*entity.RefreshToken
 	var t entity.RefreshToken
 	err := r.db.Joins("Token").Joins("Token.Client").Preload("Token.Scopes").Where(&entity.RefreshToken{Value: v}).First(&t).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "refresh token is not found")
+		return nil, oauth.ErrTokenNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (r AuthCodeRepository) FindByCode(code string) (*entity.AuthorizationCode, 
 	var e entity.AuthorizationCode
 	err := r.db.Preload("Scopes").Where(&entity.AuthorizationCode{Value: code}).First(&e).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "authorization code is not found")
+		return nil, oauth.ErrAuthorizationCodeNotFound
 	}
 	if err != nil {
 		return nil, err
