@@ -84,7 +84,7 @@ func NewImplicitFlow(r TokenRepository) *ImplicitFlow {
 	return &ImplicitFlow{tokenRepository: r}
 }
 
-func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) (any, error) {
+func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.Token, error) {
 	if r.State == "" {
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "implicit flow is required state parameter")
 	}
