@@ -17,7 +17,7 @@ Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
 grant_type = authorization_code &
-code = b1fbfa13-30fa-4ba6-8b56-e618eb5cb2ed &
+code = 7e945361-14fc-40d7-8041-3d4d3d64ee2c &
 redirect_uri = http://localhost:8081 &
 code_verifier = IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2
 
@@ -39,7 +39,7 @@ Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
 grant_type=refresh_token&
-refresh_token=fafeb7c3-44cc-4b87-ad82-d9f061277821
+refresh_token=6a257edf-5a35-4fe8-9130-57608e999d93
 
 ###
 

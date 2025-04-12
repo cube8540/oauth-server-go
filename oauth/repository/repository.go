@@ -37,11 +37,11 @@ func NewTokenRepository(db *gorm.DB) *TokenRepository {
 
 func (r TokenRepository) Save(t *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error {
 	return r.db.Transaction(func(db *gorm.DB) error {
-		if err := db.Save(t).Error; err != nil {
+		if err := db.Omit("Scopes.*").Create(t).Error; err != nil {
 			return err
 		}
 		if refresh := fn(t); refresh != nil {
-			if err := db.Save(refresh).Error; err != nil {
+			if err := db.Create(refresh).Error; err != nil {
 				return err
 			}
 		}
@@ -85,7 +85,7 @@ func (r TokenRepository) Refresh(oldRefreshToken *entity.RefreshToken, newToken 
 		if err := db.Delete(oldToken).Error; err != nil {
 			return err
 		}
-		if err := db.Save(newToken).Error; err != nil {
+		if err := db.Omit("Scopes.*").Create(newToken).Error; err != nil {
 			return err
 		}
 		if nrt := fn(newToken); nrt != nil {
@@ -106,7 +106,7 @@ func NewAuthCodeRepository(db *gorm.DB) *AuthCodeRepository {
 }
 
 func (r AuthCodeRepository) Save(c *entity.AuthorizationCode) error {
-	return r.db.Save(c).Error
+	return r.db.Omit("Scopes.*").Create(c).Error
 }
 
 func (r AuthCodeRepository) FindByCode(code string) (*entity.AuthorizationCode, error) {
