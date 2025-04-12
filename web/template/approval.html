@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>권한 동의 - OAuth2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="text/javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+      const selectAllCheckbox = document.getElementById('select-all');
+      const scopeCheckboxes = document.querySelectorAll('input[id^="scope-"]');
+
+      // 전체 선택/해제 기능
+      selectAllCheckbox.addEventListener('change', function() {
+        const isChecked = this.checked;
+        scopeCheckboxes.forEach(checkbox => {
+          checkbox.checked = isChecked;
+        });
+      });
+
+      // 개별 체크박스 변경 시 전체 선택 체크박스 상태 업데이트
+      scopeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+          const allChecked = Array.from(scopeCheckboxes).every(cb => cb.checked);
+          const someChecked = Array.from(scopeCheckboxes).some(cb => cb.checked);
+
+          selectAllCheckbox.checked = allChecked;
+          selectAllCheckbox.indeterminate = someChecked && !allChecked;
+        });
+      });
+
+      const approvalButton = document.getElementById('approval');
+      const deniedButton = document.getElementById('denied');
+
+      approvalButton.addEventListener('click', function() {
+        document.approval.submit()
+      })
+      deniedButton.addEventListener('click', function() {
+        scopeCheckboxes.forEach(e => e.checked = false)
+        document.approval.submit()
+      })
+    });
+  </script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+<div class="bg-white rounded-lg shadow-md w-full max-w-md overflow-hidden">
+  <!-- 헤더 영역 -->
+  <div class="bg-blue-600 p-6">
+    <div class="flex items-center">
+      <div class="bg-white rounded-full h-12 w-12 flex items-center justify-center mr-4">
+        <!-- 로고 대신 첫 글자 사용 -->
+        <span class="text-blue-600 text-xl font-bold">서</span>
+      </div>
+      <div class="text-white">
+        <h2 class="text-xl font-bold">{{.client}}</h2>
+      </div>
+    </div>
+  </div>
+
+  <!-- 본문 영역 -->
+  <div class="p-6">
+    <h1 class="text-xl font-bold text-gray-800 mb-4">권한 요청</h1>
+    <p class="text-gray-600 mb-6">
+      <span class="font-semibold">서비스앱</span>이(가) 다음 정보에 접근하려고 합니다.
+      원하는 권한만 선택하여 승인할 수 있습니다:
+    </p>
+
+    <!-- 스코프 목록 (체크박스 추가) -->
+    <form name="approval" action="/oauth/auth/authorize" method="post">
+    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+      <ul class="space-y-4">
+        {{ range .scopes }}
+        <li class="flex items-start">
+          <input type="checkbox" name="scope" id="scope-{{ .Code }}" value="{{ .Code }}" class="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-3">
+          <div>
+            <label for="scope-{{ .Code }}" class="font-medium text-gray-800">{{ .Name }}</label>
+            <p class="text-sm text-gray-600">{{ .Desc }}</p>
+          </div>
+        </li>
+        {{ end }}
+      </ul>
+    </div>
+    </form>
+
+    <!-- 주의사항 -->
+    <div class="mb-6">
+<!--      <p class="text-sm text-gray-600">-->
+<!--        이 앱이 받는 정보는 <a href="#" class="text-blue-600 hover:underline">서비스앱 개인정보처리방침</a>과 <a href="#" class="text-blue-600 hover:underline">서비스 약관</a>에 따라 처리됩니다.-->
+<!--      </p>-->
+      <p class="text-sm text-gray-600 mt-2">
+        언제든지 <a href="/oauth/manage/tokens" class="text-blue-600 hover:underline">계정 설정</a>에서 이 접근 권한을 취소할 수 있습니다.
+      </p>
+    </div>
+
+    <!-- 전체 선택/해제 체크박스 -->
+    <div class="flex items-center mb-4">
+      <input type="checkbox" id="select-all" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+      <label for="select-all" class="ml-2 text-sm text-gray-700">모든 권한 선택/해제</label>
+    </div>
+
+    <!-- 승인/거부 버튼 -->
+    <div class="flex flex-col space-y-3">
+      <button id="approval" type="button" class="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium">
+        선택한 권한 승인
+      </button>
+      <button id="denied" type="button" class="w-full bg-white text-gray-700 py-3 px-4 rounded-md border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors font-medium">
+        거부
+      </button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

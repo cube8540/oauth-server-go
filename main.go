@@ -16,7 +16,9 @@ func main() {
 	route := gin.Default()
 	store := conf.GetStore()
 
-	route.LoadHTMLGlob("templates/*")
+	route.LoadHTMLGlob("web/template/*")
+	route.Static("/css", "./web/css")
+	route.Static("/js", "./web/js")
 
 	route.Use(protocol.ErrorHandlerMiddleware)
 	route.Use(sessions.Sessions(applicationSessionID, store))

@@ -213,39 +213,33 @@ type m struct {
 func (m m) tokenManagement(c *gin.Context) error {
 	switch c.GetHeader("Accept") {
 	case "application/json":
-		return m.getTokens(c)
+		loginValue, _ := c.Get(security.SessionKeyLogin)
+		login, _ := loginValue.(*security.SessionLogin)
+
+		tokens, err := m.service.GetGrantedTokens(login.Username)
+		if err != nil {
+			return appErrWrap(err)
+		}
+
+		var details []TokenDetails
+		for _, token := range tokens {
+			details = append(details, NewTokenDetails(&token))
+		}
+		if len(details) == 0 {
+			details = make([]TokenDetails, 0)
+		}
+		c.JSON(http.StatusOK, protocol.NewOK(details))
+		return nil
 	default:
-		return m.tokenManagementPage(c)
+		c.HTML(http.StatusOK, "manage-tokens.html", gin.H{})
+		return nil
 	}
-}
-
-func (m m) tokenManagementPage(c *gin.Context) error {
-	c.HTML(http.StatusOK, "manage-tokens.html", gin.H{})
-	return nil
-}
-
-func (m m) getTokens(c *gin.Context) error {
-	loginValue, _ := c.Get(security.SessionKeyLogin)
-	login, _ := loginValue.(*security.SessionLogin)
-
-	tokens, err := m.service.GetGrantedTokens(login.Username)
-	if err != nil {
-		return err
-	}
-
-	var details []TokenDetails
-	for _, token := range tokens {
-		details = append(details, NewTokenDetails(&token))
-	}
-
-	c.JSON(http.StatusOK, protocol.NewOK(details))
-	return nil
 }
 
 func (m m) deleteToken(c *gin.Context) error {
 	tokenValue := c.Param("tokenValue")
 	if err := m.service.Delete(tokenValue); err != nil {
-		return err
+		return appErrWrap(err)
 	}
 	c.JSON(http.StatusOK, protocol.NewOK("ok"))
 	return nil
@@ -273,4 +267,16 @@ func getOriginRequest(s sessions.Session) (*oauth.AuthorizationRequest, error) {
 func clearOriginRequest(s sessions.Session) error {
 	s.Delete(sessionKeyOriginAuthRequest)
 	return s.Save()
+}
+
+func appErrWrap(err error) error {
+	if errors.Is(err, oauth.ErrClientNotFound) {
+		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "client is not found")
+	} else if errors.Is(err, oauth.ErrTokenNotFound) {
+		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "token is not found")
+	} else if errors.Is(err, oauth.ErrAuthorizationCodeNotFound) {
+		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "authorization code is not found")
+	} else {
+		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
+	}
 }

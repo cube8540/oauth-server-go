@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>액세스 토큰 관리</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 자바스크립트 -->
+  <script type="text/javascript">
+    let tokens = [];
+    let selectedToken;
+
+    function fetchAndRenderTokens() {
+      fetchTokens(renderTokens);
+    }
+
+    function fetchTokens(callback) {
+      const http = new XMLHttpRequest();
+      http.open('GET', '/oauth/manage/tokens');
+      http.setRequestHeader('Accept', 'application/json');
+
+      http.onreadystatechange = function() {
+        if (http.readyState === http.DONE && http.status === 200) {
+          callback(JSON.parse(http.responseText).data);
+        }
+      }
+      http.send();
+    }
+
+    function renderTokens(tokenList) {
+      tokens = tokenList
+
+      const tokenTable = document.getElementById('tokens')
+      tokenTable.innerHTML = '';
+      for (let token of tokens) {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="text-sm font-medium text-gray-900">${token.clientName}</div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                ${token.active ? '활성' : '만료'}
+            </span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            ${token.issuedAt}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+            ${token.expiredAt}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <button class="text-red-600 hover:text-red-900 ml-2" data-token-id="${token.value}" data-action="delete">삭제</button>
+            <button class="text-blue-600 hover:text-blue-900 ml-2" data-token-id="${token.value}" data-action="detail">상세</button>
+          </td>
+        `;
+        tokenTable.append(tr)
+
+        const deleteModal = document.getElementById('delete-modal');
+        const detailModal = document.getElementById('detail-modal');
+
+        // 삭제 버튼 클릭
+        document.querySelectorAll('[data-action="delete"]').forEach(button => {
+          button.addEventListener('click', function() {
+            const tokenId = this.getAttribute('data-token-id');
+            selectedToken = tokens.find(t => t.value === tokenId);
+            deleteModal.classList.remove('hidden');
+          });
+        });
+
+        // 상세 버튼 클릭
+        document.querySelectorAll('[data-action="detail"]').forEach(button => {
+          button.addEventListener('click', function() {
+            const tokenId = this.getAttribute('data-token-id');
+            selectedToken = tokens.find(t => t.value === tokenId);
+            renderDetailModal();
+            detailModal.classList.remove('hidden');
+          });
+        });
+      }
+    }
+
+    function renderDetailModal() {
+      const detailBody = document.getElementById('detailBody')
+      const scopes = selectedToken.scopes ? selectedToken.scopes : [];
+      const scopeTags = scopes.map(scope => `<span class="px-2 py-1 text-xs rounded bg-blue-50 text-blue-600">${scope}</span>`);
+      detailBody.innerHTML = `
+        <div>
+          <h4 class="text-sm font-medium text-gray-500">클라이언트</h4>
+          <p id="detail_token-id" class="text-gray-900 font-mono text-sm">${selectedToken.clientName}</p>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-gray-500">토큰 ID</h4>
+          <p id="detail_token-id" class="text-gray-900 font-mono text-sm">${selectedToken.value}</p>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-gray-500">발급일</h4>
+          <p class="text-gray-900">${selectedToken.issuedAt}</p>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-gray-500">만료일</h4>
+          <p class="text-gray-900">${selectedToken.expiredAt}</p>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-gray-500">승인된 스코프</h4>
+          <div class="mt-2 p-3 bg-gray-50 rounded-md max-h-40 overflow-y-auto">
+            <div class="flex flex-wrap gap-2">
+                ${scopeTags}
+            </div>
+          </div>
+        </div>
+        <div>
+          <h4 class="text-sm font-medium text-gray-500">상태</h4>
+          <p id="token-status" class="font-medium">${selectedToken.active ? '활성' : '만료'}</p>
+        </div>
+      `;
+    }
+
+    function revokeToken(callback) {
+      const http = new XMLHttpRequest();
+      http.open('DELETE', '/oauth/manage/tokens/' + selectedToken.value);
+      http.onreadystatechange = function() {
+        if (http.readyState === http.DONE && http.status === 200) {
+          callback();
+        }
+      }
+      http.send();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const deleteModal = document.getElementById('delete-modal');
+      const detailModal = document.getElementById('detail-modal');
+
+      // 취소 버튼
+      document.getElementById('cancel-delete').addEventListener('click', function() {
+        revokeToken(function() {
+          deleteModal.classList.add('hidden');
+          fetchAndRenderTokens();
+        });
+      });
+
+      // 삭제 확인 버튼
+      document.getElementById('confirm-delete').addEventListener('click', function() {
+        revokeToken(function() {
+          deleteModal.classList.add('hidden');
+          fetchAndRenderTokens();
+        });
+      });
+
+      // 상세 모달 닫기
+      document.getElementById('close-detail').addEventListener('click', function() {
+        detailModal.classList.add('hidden');
+      });
+
+      // 모달 내 토큰 취소 버튼
+      document.getElementById('modal-token-revoke').addEventListener('click', function() {
+        detailModal.classList.add('hidden');
+        deleteModal.classList.remove('hidden');
+      });
+
+      fetchAndRenderTokens();
+    });
+  </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<div class="container max-w-6xl mx-auto px-4 py-6">
+  <!-- 헤더 섹션 -->
+  <header class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-800 mb-2">OAuth2 액세스 토큰 관리</h1>
+    <p class="text-gray-600">발급된 액세스 토큰을 확인하고 관리할 수 있습니다.</p>
+  </header>
+
+  <!-- 토큰 목록 테이블 -->
+  <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+        <tr>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">클라이언트</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">발급일</th>
+          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">만료일</th>
+          <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">관리</th>
+        </tr>
+        </thead>
+        <tbody id="tokens" class="bg-white divide-y divide-gray-200">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 토큰 삭제 확인 모달 -->
+<div id="delete-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-10">
+  <div class="bg-white rounded-lg p-6 max-w-md w-full">
+    <h3 class="text-lg font-medium text-gray-900 mb-4">토큰 삭제 확인</h3>
+    <p class="text-gray-600 mb-6">
+      이 액세스 토큰을 정말로 삭제하시겠습니까? 삭제 시 해당 앱은 더 이상 계정에 접근할 수 없게 됩니다.
+    </p>
+    <div class="flex justify-end gap-3">
+      <button id="cancel-delete" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">취소</button>
+      <button id="confirm-delete" class="px-4 py-2 bg-red-600 border border-red-600 rounded-md text-white hover:bg-red-700">삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 토큰 상세 정보 모달 -->
+<div id="detail-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-10">
+  <div class="bg-white rounded-lg p-6 max-w-md w-full">
+    <div class="flex justify-between items-center mb-6">
+      <div class="flex items-center">
+        <div id="client-icon" class="h-12 w-12 rounded-full flex items-center justify-center mr-3">
+          <span id="client-icon-text" class="text-xl font-bold"></span>
+        </div>
+        <h3 id="client-name" class="text-lg font-medium text-gray-900"></h3>
+      </div>
+      <button id="close-detail" class="text-gray-400 hover:text-gray-500">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="space-y-4" id="detailBody">
+    </div>
+    <div class="mt-6 pt-4 border-t border-gray-200">
+      <button id="modal-token-revoke" class="w-full px-4 py-2 bg-red-600 rounded-md text-white hover:bg-red-700">이 토큰 취소하기</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
