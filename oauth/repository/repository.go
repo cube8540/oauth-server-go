@@ -109,6 +109,9 @@ func (r AuthCodeRepository) Save(c *entity.AuthorizationCode) error {
 func (r AuthCodeRepository) FindByCode(code string) (*entity.AuthorizationCode, error) {
 	var e entity.AuthorizationCode
 	err := r.db.Preload("Scopes").Where(&entity.AuthorizationCode{Value: code}).First(&e).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "authorization code is not found")
+	}
 	if err != nil {
 		return nil, err
 	}
