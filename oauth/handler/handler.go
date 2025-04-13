@@ -56,17 +56,17 @@ type h struct {
 // 인증에 사용된 요청은 세션에 저장되었다가 실제 토큰을 발행할 때 사용한다.
 //
 // 주요 요청 파라미터:
-// - client_id: 필수, 클라이언트 식별자
-// - response_type: 필수, "code" 또는 "token" 값
-// - redirect_uri: 선택, 인가 완료 후 리다이렉트할 URI
-// - scope: 선택, 요청하는 접근 범위
-// - state: 선택, CSRF 방지 및 상태 유지를 위한 값
+//   - client_id: 필수, 클라이언트 식별자
+//   - response_type: 필수, "code" 또는 "token" 값
+//   - redirect_uri: 선택, 인가 완료 후 리다이렉트할 URI
+//   - scope: 선택, 요청하는 접근 범위
+//   - state: 선택, CSRF 방지 및 상태 유지를 위한 값
 //
 // 처리 흐름:
-// 1. 요청 검증 (필수 파라미터 확인, 클라이언트 존재 확인)
-// 2. 리다이렉트 URI 유효성 검증
-// 3. 요청 정보를 세션에 저장
-// 4. 사용자 승인 페이지 표시
+//  1. 요청 검증 (필수 파라미터 확인, 클라이언트 존재 확인)
+//  2. 리다이렉트 URI 유효성 검증
+//  3. 요청 정보를 세션에 저장
+//  4. 사용자 승인 페이지 표시
 //
 // [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
 // [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
@@ -115,12 +115,12 @@ func (h h) authorize(c *gin.Context) error {
 // 요청값으로 사용자가 허용한 스코프를 리스트로 받으며 그 외의 필요한 값들은 기존에 HTTP GET: /authorize 요청에서 사용한 요청을 세션에서 꺼내어 사용한다.
 //
 // 처리 흐름:
-// 1. 세션에서 원래 인가 요청 정보 복원
-// 2. 클라이언트 정보 검증
-// 3. 사용자 승인 스코프 수집
-// 4. response_type에 따라 인가 코드 또는 토큰 생성
-// 5. 리다이렉트 URI로 결과와 함께 리다이렉트
-// 6. 세션에서 원래 요청 정보 삭제
+//  1. 세션에서 원래 인가 요청 정보 복원
+//  2. 클라이언트 정보 검증
+//  3. 사용자 승인 스코프 수집
+//  4. response_type에 따라 인가 코드 또는 토큰 생성
+//  5. 리다이렉트 URI로 결과와 함께 리다이렉트
+//  6. 세션에서 원래 요청 정보 삭제
 //
 // [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
 // [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
@@ -173,17 +173,17 @@ func (h h) approval(c *gin.Context) error {
 // issueToken 토큰을 생성하고 반환한다. 자세한 사항은 [RFC 6749] 문서를 참고
 //
 // 지원하는 grant_type:
-// - authorization_code: 인가 코드를 토큰으로 교환
-// - refresh_token: 갱신 토큰으로 새로운 액세스 토큰 발급
-// - password: 리소스 소유자 비밀번호 자격증명
-// - client_credentials: 클라이언트 자격증명
+//   - authorization_code: 인가 코드를 토큰으로 교환
+//   - refresh_token: 갱신 토큰으로 새로운 액세스 토큰 발급
+//   - password: 리소스 소유자 비밀번호 자격증명
+//   - client_credentials: 클라이언트 자격증명
 //
 // 주요 응답 형식:
-// - access_token: 액세스 토큰
-// - token_type: 토큰 유형 (Bearer)
-// - expires_in: 토큰 만료 시간(초)
-// - refresh_token: 갱신 토큰(선택)
-// - scope: 승인된 스코프
+//   - access_token: 액세스 토큰
+//   - token_type: 토큰 유형 (Bearer)
+//   - expires_in: 토큰 만료 시간(초)
+//   - refresh_token: 갱신 토큰(선택)
+//   - scope: 승인된 스코프
 //
 // [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-5
 func (h h) issueToken(c *gin.Context) error {
@@ -219,15 +219,15 @@ func (h h) issueToken(c *gin.Context) error {
 // introspection 입력 받은 토큰의 상세 정보를 질의 하여 반환한다. 자세한 사항은 [RFC 7662] 참고
 //
 // 요청 파라미터:
-// - token: 필수, 검증할 토큰 값
-// - token_type_hint: 선택, 토큰 유형 힌트 (access_token 또는 refresh_token)
+//   - token: 필수, 검증할 토큰 값
+//   - token_type_hint: 선택, 토큰 유형 힌트 (access_token 또는 refresh_token)
 //
 // 응답 필드:
-// - active: 토큰의 활성화 여부
-// - scope: 토큰에 부여된 스코프
-// - client_id: 토큰이 발급된 클라이언트 ID
-// - username: 토큰이 발급된 사용자 이름
-// - exp: 토큰 만료 시간
+//   - active: 토큰의 활성화 여부
+//   - scope: 토큰에 부여된 스코프
+//   - client_id: 토큰이 발급된 클라이언트 ID
+//   - username: 토큰이 발급된 사용자 이름
+//   - exp: 토큰 만료 시간
 //
 // [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2
 func (h h) introspection(c *gin.Context) error {
@@ -304,8 +304,9 @@ func (m m) deleteToken(c *gin.Context) error {
 }
 
 // storeOriginRequest 인가 요청 정보를 세션에 저장한다.
-// s: 세션 객체
-// r: 저장할 인가 요청 정보
+//
+//	s: 세션 객체
+//	r: 저장할 인가 요청 정보
 func storeOriginRequest(s sessions.Session, r *oauth.AuthorizationRequest) error {
 	serial, err := json.Marshal(&r)
 	if err != nil {
@@ -316,7 +317,8 @@ func storeOriginRequest(s sessions.Session, r *oauth.AuthorizationRequest) error
 }
 
 // getOriginRequest 세션에서 인가 요청 정보를 가져온다.
-// s: 세션 객체
+//
+//	s: 세션 객체
 func getOriginRequest(s sessions.Session) (*oauth.AuthorizationRequest, error) {
 	v := s.Get(sessionKeyOriginAuthRequest)
 	if rb, ok := v.([]byte); ok {
@@ -328,7 +330,8 @@ func getOriginRequest(s sessions.Session) (*oauth.AuthorizationRequest, error) {
 }
 
 // clearOriginRequest 세션에서 인가 요청 정보를 삭제한다.
-// s: 세션 객체
+//
+//	s: 세션 객체
 func clearOriginRequest(s sessions.Session) error {
 	s.Delete(sessionKeyOriginAuthRequest)
 	return s.Save()
