@@ -87,6 +87,7 @@ go run main.go
 - API 문서 작성
 - 클라이언트 등록 및 관리 기능
 - Docker 실행 방법 추가
+- 좀 더 Go 스럽게
 
 ---
 

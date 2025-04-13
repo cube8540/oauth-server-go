@@ -8,15 +8,18 @@ import (
 )
 
 // TokenRepository OAuth2 토큰 저장소
+// 엑세스 토큰과 리프레시 토큰을 저장하고 조회하는 인터페이스
 type TokenRepository interface {
 	// Save 인자로 받은 엑세스 토큰을 저장하고 fn 함수를 통해 토큰을 재발행 할 수 있는 리플레시 토큰을 생성하여 저장한다.
 	// 만약 fn이 nil을 반환 했을 경우 엑세스 토큰은 리플레시 토큰을 가지지 않는다.
 	Save(t *entity.Token, fn func(t *entity.Token) *entity.RefreshToken) error
 
 	// FindAccessTokenByValue v와 일치하는 엑세스 토큰을 조회하여 반환한다.
+	// 토큰이 존재하지 않을 경우 oauth.ErrTokenNotFound 오류를 반환한다.
 	FindAccessTokenByValue(v string) (*entity.Token, error)
 
 	// FindRefreshTokenByValue v와 일치하는 리플레시 토큰을 조회하여 반환한다.
+	// 토큰이 존재하지 않을 경우 oauth.ErrTokenNotFound 오류를 반환한다.
 	FindRefreshTokenByValue(v string) (*entity.RefreshToken, error)
 
 	// Refresh 기존의 oldRefreshToken는 삭제 하고 신규 newToken을 저장한다 그 후 fn 함수를 통해 newToken을 재발행 할 수 있는 리플레시 토큰을 생성하여 저장한다.
@@ -27,6 +30,9 @@ type TokenRepository interface {
 // AuthCodeConsume 인자로 인가코드를 받아 그 인가코드의 엔티티 반환하고 저장소에서 삭제한다.
 type AuthCodeConsume func(code string) (*entity.AuthorizationCode, error)
 
+// AuthorizationCodeFlow OAuth2 인가 코드 흐름(Authorization Code Flow) 구현체 [RFC 6749 문단 4.1] 참조
+//
+// [RFC 6749 문단 4.1]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
 type AuthorizationCodeFlow struct {
 	tokenRepository TokenRepository
 	consume         AuthCodeConsume
@@ -39,7 +45,11 @@ func NewAuthorizationCodeFlow(tr TokenRepository, consume AuthCodeConsume) *Auth
 	}
 }
 
-func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+// Generate 인가 코드를 통해 액세스 토큰과 리프레시 토큰을 생성한다.
+// PKCE(Proof Key for Code Exchange) 메커니즘을 지원한다. [RFC 7636] 참조
+//
+// [RFC 7636]: https://datatracker.ietf.org/doc/html/rfc7636
+func (s *AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
 	if r.Code == "" {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "authorization code is required")
 	}
@@ -53,6 +63,7 @@ func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 	if !code.Available() {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidGrant, "authorization code is expires")
 	}
+	// PKCE 검증 (code_verifier와 code_challenge 검증)
 	verifier, err := code.Verifier(r.CodeVerifier)
 	if err != nil {
 		return nil, nil, err
@@ -60,11 +71,13 @@ func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 	if !verifier {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "code_verifier is not matched")
 	}
+	// 리다이렉트 URI 일치 여부 검증
 	if to, _ := c.RedirectURL(code.Redirect); to != r.Redirect {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "redirect_uri is not matched")
 	}
 	token := entity.NewTokenWithCode(entity.UUIDTokenIDGenerator, code)
 	var refresh *entity.RefreshToken
+	// 액세스 토큰 저장 및 리프레시 토큰 생성 (기밀 클라이언트만 리프레시 토큰 발급)
 	err = s.tokenRepository.Save(token, func(t *entity.Token) *entity.RefreshToken {
 		if c.Type == oauth.ClientTypeConfidential {
 			refresh = entity.NewRefreshToken(t, entity.UUIDTokenIDGenerator)
@@ -77,24 +90,30 @@ func (s AuthorizationCodeFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 	return token, refresh, nil
 }
 
+// ImplicitFlow OAuth2 암묵적 흐름(Implicit Flow) 구현체 [RFC 6749 문단 4.2] 참조
+// 보안상 이유로 리프레시 토큰을 발급하지 않는다.
+//
+// [RFC 6749 문단 4.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
 type ImplicitFlow struct {
 	tokenRepository TokenRepository
 }
 
+// NewImplicitFlow 새로운 ImplicitFlow 인스턴스를 생성한다.
 func NewImplicitFlow(r TokenRepository) *ImplicitFlow {
 	return &ImplicitFlow{tokenRepository: r}
 }
 
-func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.Token, error) {
+// Generate 인가 요청을 통해 액세스 토큰을 생성한다.
+// 암묵적 흐름은 리프레시 토큰을 발급하지 않는다.
+func (f *ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.Token, error) {
+	// CSRF 방지를 위한 state 파라미터 필수 검증
 	if r.State == "" {
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "implicit flow is required state parameter")
 	}
-
 	scopes, err := c.Scopes.GetAll(oauth.SplitScope(r.Scopes))
 	if err != nil {
 		return nil, err
 	}
-
 	token := entity.NewToken(entity.UUIDTokenIDGenerator, c)
 	token.Username = r.Username
 	token.Scopes = scopes
@@ -105,8 +124,13 @@ func (f ImplicitFlow) Generate(c *entity.Client, r *oauth.AuthorizationRequest) 
 	return token, nil
 }
 
+// ResourceOwnerAuthentication 리소스 소유자(사용자) 인증을 위한 함수 타입
+// username과 password를 받아 인증 성공 여부를 반환한다.
 type ResourceOwnerAuthentication func(username, password string) (bool, error)
 
+// ResourceOwnerPasswordCredentialsFlow OAuth2 리소스 소유자 비밀번호 자격 증명 흐름 구현체 [RFC 6749 문단 Section 4.3] 참조
+//
+// [RFC 6749 문단 Section 4.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
 type ResourceOwnerPasswordCredentialsFlow struct {
 	authentication  ResourceOwnerAuthentication
 	tokenRepository TokenRepository
@@ -116,7 +140,8 @@ func NewResourceOwnerPasswordCredentialsFlow(auth ResourceOwnerAuthentication, r
 	return &ResourceOwnerPasswordCredentialsFlow{authentication: auth, tokenRepository: r}
 }
 
-func (f ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+// Generate 사용자 자격 증명을 통해 액세스 토큰과 리프레시 토큰을 생성한다.
+func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
 	if r.Username == "" || r.Password == "" {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "username, password is required")
 	}
@@ -135,6 +160,7 @@ func (f ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oaut
 	token.Username = r.Username
 	token.Scopes = scopes
 	var refresh *entity.RefreshToken
+	// 액세스 토큰 저장 및 리프레시 토큰 생성 (기밀 클라이언트만 리프레시 토큰 발급)
 	err = f.tokenRepository.Save(token, func(t *entity.Token) *entity.RefreshToken {
 		if c.Type == oauth.ClientTypeConfidential {
 			refresh = entity.NewRefreshToken(t, entity.UUIDTokenIDGenerator)
@@ -147,6 +173,9 @@ func (f ResourceOwnerPasswordCredentialsFlow) Generate(c *entity.Client, r *oaut
 	return token, refresh, nil
 }
 
+// RefreshFlow OAuth2 리프레시 토큰 흐름 구현체 [RFC 6749 - 문단 6] 참조
+//
+// [RFC 6749 - 문단 6]: https://datatracker.ietf.org/doc/html/rfc6749#section-6
 type RefreshFlow struct {
 	tokenRepository TokenRepository
 }
@@ -155,7 +184,8 @@ func NewRefreshFlow(r TokenRepository) *RefreshFlow {
 	return &RefreshFlow{tokenRepository: r}
 }
 
-func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+// Generate 리프레시 토큰을 통해 새로운 액세스 토큰과 리프레시 토큰을 생성한다.
+func (f *RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
 	if r.RefreshToken == "" {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidRequest, "refresh_token is required")
 	}
@@ -172,6 +202,7 @@ func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.
 	if rt.ExpiredAt.Before(time.Now()) {
 		return nil, nil, oauth.NewErr(oauth.ErrInvalidGrant, "refresh token is invalid")
 	}
+	// 스코프 결정 (새 스코프가 요청되지 않은 경우 기존 스코프 유지)
 	var scopes entity.GrantedScopes
 	if r.Scope != "" {
 		scopes, err = c.Scopes.GetAll(oauth.SplitScope(r.Scope))
@@ -185,6 +216,7 @@ func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.
 	newToken.Username = rt.Token.Username
 	newToken.Scopes = scopes
 	var newRefreshToken *entity.RefreshToken
+	// 기존 리프레시 토큰 삭제 및 새 토큰 저장
 	err = f.tokenRepository.Refresh(rt, newToken, func(t *entity.Token) *entity.RefreshToken {
 		newRefreshToken = entity.NewRefreshToken(t, entity.UUIDTokenIDGenerator)
 		return newRefreshToken
@@ -192,9 +224,13 @@ func (f RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return newToken, newRefreshToken, nil
 }
 
+// ClientCredentialsFlow OAuth2 클라이언트 자격 증명 흐름 구현체 [RFC 6749 - 문단 4.4] 참조
+//
+// [RFC 6749 문단 4.4]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
 type ClientCredentialsFlow struct {
 	tokenRepository TokenRepository
 }
@@ -203,7 +239,10 @@ func NewClientCredentialsFlow(r TokenRepository) *ClientCredentialsFlow {
 	return &ClientCredentialsFlow{tokenRepository: r}
 }
 
-func (f ClientCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+// Generate 클라이언트 자격 증명을 통해 액세스 토큰을 생성한다.
+// 클라이언트 자격 증명 흐름은 리프레시 토큰을 발급하지 않는다.
+func (f *ClientCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+	// 공개 클라이언트는 클라이언트 자격 증명 흐름 사용 불가
 	if c.Type == oauth.ClientTypePublic {
 		return nil, nil, oauth.NewErr(oauth.ErrUnauthorizedClient, "client cannot have been granted token")
 	}
@@ -213,6 +252,7 @@ func (f ClientCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 	}
 	newToken := entity.NewToken(entity.UUIDTokenIDGenerator, c)
 	newToken.Scopes = scopes
+	// 토큰 저장 (리프레시 토큰 없음)
 	err = f.tokenRepository.Save(newToken, func(t *entity.Token) *entity.RefreshToken {
 		return nil
 	})
@@ -223,8 +263,10 @@ func (f ClientCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest)
 }
 
 // TokenInspector 토큰 상세 정보를 반환하는 인터페이스
+// 토큰 검사(Introspection)에 필요한 정보를 제공한다. [RFC 7662] 참조
+//
+// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662
 type TokenInspector interface {
-
 	// InspectValue 자장되어 있는 토큰 값을 반환한다.
 	InspectValue() string
 
@@ -253,15 +295,21 @@ type TokenInspector interface {
 	InspectExpiredAt() uint
 }
 
+// TokenService 토큰 서비스
+// 토큰 검사(Introspection) 기능을 제공한다.
 type TokenService struct {
 	repository TokenRepository
 }
 
+// NewTokenService 새로운 TokenService 인스턴스를 생성한다.
 func NewTokenService(r TokenRepository) *TokenService {
 	return &TokenService{repository: r}
 }
 
-func (s TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequest) (*oauth.Introspection, error) {
+// Introspection 토큰 검사를 수행한다. [RFC 7662] 참조
+//
+// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662
+func (s *TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequest) (*oauth.Introspection, error) {
 	var token TokenInspector
 	var err error
 	switch r.TokenTypeHint {
@@ -293,24 +341,31 @@ func (s TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionRequ
 		ExpiresIn: token.InspectExpiredAt(),
 		IssuedAt:  token.InspectIssuedAt(),
 	}
+
 	return intro, nil
 }
 
 // TokenManagementRepository OAuth2 토큰 관리용 저장소
+// 사용자별 토큰 관리를 위한 기능을 제공한다.
 type TokenManagementRepository interface {
 	// FindAccessTokenByUsername username으로 발급된 엑세스 토큰을 반환한다.
 	FindAccessTokenByUsername(u string) ([]entity.Token, error)
 
 	// FindAccessTokenByValue v와 일치하는 엑세스 토큰을 조회하여 반환한다.
+	// 토큰이 존재하지 않을 경우 oauth.ErrTokenNotFound 오류를 반환한다.
 	FindAccessTokenByValue(v string) (*entity.Token, error)
 
 	// FindRefreshTokenByTokenID 엑세스 토큰을 리플레시할 수 있는 리플레시 토큰을 검색하여 반환한다.
+	// 토큰이 존재하지 않을 경우 oauth.ErrTokenNotFound 오류를 반환한다.
 	FindRefreshTokenByTokenID(t uint) (*entity.RefreshToken, error)
 
 	// Delete 입력 받은 토큰들을 모두 삭제한다.
+	// 리플레시 토큰(rt)은 nil일 수 있으며 nil일 경우 삭제하지 않는다.
 	Delete(t *entity.Token, rt *entity.RefreshToken) error
 }
 
+// TokenManagementService 토큰 관리 서비스
+// 사용자별 토큰 관리 기능을 제공한다.
 type TokenManagementService struct {
 	repository TokenManagementRepository
 }
@@ -319,11 +374,13 @@ func NewTokenManagementService(r TokenManagementRepository) *TokenManagementServ
 	return &TokenManagementService{repository: r}
 }
 
-func (s TokenManagementService) GetGrantedTokens(username string) ([]entity.Token, error) {
+// GetGrantedTokens 사용자에게 발급된 모든 액세스 토큰을 조회한다.
+func (s *TokenManagementService) GetGrantedTokens(username string) ([]entity.Token, error) {
 	return s.repository.FindAccessTokenByUsername(username)
 }
 
-func (s TokenManagementService) Delete(t string) error {
+// Delete 지정된 액세스 토큰과 연관된 리프레시 토큰을 삭제한다.
+func (s *TokenManagementService) Delete(t string) error {
 	token, err := s.repository.FindAccessTokenByValue(t)
 	if err != nil {
 		return err
