@@ -5,6 +5,7 @@ import (
 	"oauth-server-go/oauth/entity"
 )
 
+// oauth2ShareKeyAuthClient 인증된 클라이언트 정보를 Gin 컨텍스트에서 공유하는 키
 const oauth2ShareKeyAuthClient = "oauth2/security/authClient"
 
 type ClientAuthManager func(id, secret string) (*entity.Client, error)

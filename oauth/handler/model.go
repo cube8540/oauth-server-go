@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// TokenDetails 사용자에게 발급된 토큰의 상세 정보를 제공하는 구조체이다. 클라이언트 측에 표시할 때 사용된다.
 type TokenDetails struct {
 	Value      string    `json:"value"`
 	ClientName string    `json:"clientName"`
