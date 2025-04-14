@@ -28,7 +28,7 @@ func NewAuthCodeService(r AuthCodeRepository) *AuthCodeService {
 	}
 }
 
-func (s AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error) {
+func (s *AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*entity.AuthorizationCode, error) {
 	scopes, err := c.Scopes.GetAll(oauth.SplitScope(r.Scopes))
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func (s AuthCodeService) New(c *entity.Client, r *oauth.AuthorizationRequest) (*
 	return code, nil
 }
 
-func (s AuthCodeService) Retrieve(code string) (*entity.AuthorizationCode, error) {
+func (s *AuthCodeService) Retrieve(code string) (*entity.AuthorizationCode, error) {
 	authCode, err := s.repository.FindByCode(code)
 	if errors.Is(err, oauth.ErrAuthorizationCodeNotFound) {
 		return nil, oauth.NewErr(oauth.ErrInvalidGrant, "authorization code is not found")

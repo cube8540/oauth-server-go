@@ -33,7 +33,7 @@ func Routing(route *gin.Engine) {
 }
 
 func (h h) loginPage(c *gin.Context) error {
-	c.HTML(http.StatusOK, "login.html", gin.H{})
+	c.HTML(http.StatusOK, "login.html", nil)
 	return nil
 }
 

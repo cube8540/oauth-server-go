@@ -23,7 +23,7 @@ func NewAuthService(r AccountRepository, h crypto.Hasher) *AuthService {
 	}
 }
 
-func (s AuthService) Login(r *model.Login) (*entity.Account, error) {
+func (s *AuthService) Login(r *model.Login) (*entity.Account, error) {
 	if r.Username == "" || r.Password == "" {
 		return nil, user.ErrRequireParamsMissing
 	}

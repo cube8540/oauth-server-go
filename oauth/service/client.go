@@ -22,11 +22,11 @@ func NewClientService(r ClientRepository, h crypto.Hasher) *ClientService {
 	}
 }
 
-func (s ClientService) GetClient(id string) (*entity.Client, error) {
+func (s *ClientService) GetClient(id string) (*entity.Client, error) {
 	return s.repository.FindByClientID(id)
 }
 
-func (s ClientService) Auth(id, secret string) (*entity.Client, error) {
+func (s *ClientService) Auth(id, secret string) (*entity.Client, error) {
 	if id == "" {
 		return nil, oauth.NewErr(oauth.ErrInvalidRequest, "client id is required")
 	}

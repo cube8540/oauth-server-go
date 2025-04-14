@@ -17,7 +17,7 @@ func NewAccountRepository(db *gorm.DB) *AccountRepository {
 	}
 }
 
-func (r AccountRepository) FindByUsername(u string) (*entity.Account, error) {
+func (r *AccountRepository) FindByUsername(u string) (*entity.Account, error) {
 	var account entity.Account
 	err := r.db.Where(&entity.Account{Username: u}).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

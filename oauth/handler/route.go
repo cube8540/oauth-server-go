@@ -31,7 +31,7 @@ type (
 	}
 )
 
-func (f authorizationRequestFlow) consume(c *entity.Client, r *oauth.AuthorizationRequest) (any, error) {
+func (f *authorizationRequestFlow) consume(c *entity.Client, r *oauth.AuthorizationRequest) (any, error) {
 	switch r.ResponseType {
 	case oauth.ResponseTypeCode:
 		return f.authCodeService.New(c, r)
@@ -42,7 +42,7 @@ func (f authorizationRequestFlow) consume(c *entity.Client, r *oauth.Authorizati
 	}
 }
 
-func (f tokenIssueFlow) generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
+func (f *tokenIssueFlow) generate(c *entity.Client, r *oauth.TokenRequest) (*entity.Token, *entity.RefreshToken, error) {
 	switch r.GrantType {
 	case oauth.GrantTypeAuthorizationCode:
 		return f.authorizationCodeFlow.Generate(c, r)
