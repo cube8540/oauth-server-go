@@ -110,7 +110,7 @@ func Routing(route *gin.Engine) {
 	group.Use(ErrorHandleMiddleware())
 
 	authorize := group.Group("/authorize")
-	authorize.Use(security.Authenticated(newAccessDeniedHandler()))
+	authorize.Use(security.Protected(newAccessDeniedHandler()))
 	authorize.GET("", protocol.NewHTTPHandler(h.authorize))
 	authorize.POST("", protocol.NewHTTPHandler(h.approval))
 
@@ -126,7 +126,7 @@ func Routing(route *gin.Engine) {
 	}
 
 	manageGroup := route.Group("/oauth/manage")
-	manageGroup.Use(security.Authenticated(security.AccessDeniedRedirect("/auth/login")))
+	manageGroup.Use(security.Protected(security.AccessDeniedRedirect("/auth/login")))
 	manageGroup.GET("/tokens", protocol.NewHTTPHandler(m.tokenManagement))
 	manageGroup.DELETE("/tokens/:tokenValue", protocol.NewHTTPHandler(m.deleteToken))
 }

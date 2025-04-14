@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -146,8 +145,7 @@ func (h h) approval(c *gin.Context) error {
 	redirect, _ := client.RedirectURL(origin.Redirect)
 	to, _ := url.Parse(redirect)
 
-	loginValue, _ := c.Get(security.SessionKeyLogin)
-	if login, ok := loginValue.(*security.SessionLogin); ok {
+	if login, ok := security.Retrieve(c).Get(); ok {
 		origin.Username = login.Username
 	}
 
@@ -256,7 +254,7 @@ type TokenManagementService interface {
 	GetGrantedTokens(username string) ([]entity.Token, error)
 
 	// Delete 특정 토큰을 삭제한다.
-	Delete(c context.Context, t string) error
+	Delete(login *security.Login, t string) error
 }
 
 // m 토큰 관리 핸들러 구조체이다.
@@ -270,8 +268,7 @@ type m struct {
 func (m m) tokenManagement(c *gin.Context) error {
 	switch c.GetHeader("Accept") {
 	case "application/json":
-		loginValue, _ := c.Get(security.SessionKeyLogin)
-		login, _ := loginValue.(*security.SessionLogin)
+		login, _ := security.Retrieve(c).Get()
 
 		tokens, err := m.service.GetGrantedTokens(login.Username)
 		if err != nil {
@@ -297,7 +294,8 @@ func (m m) tokenManagement(c *gin.Context) error {
 // URL 파라미터로 삭제할 토큰 값을 받는다.
 func (m m) deleteToken(c *gin.Context) error {
 	tokenValue := c.Param("tokenValue")
-	if err := m.service.Delete(c, tokenValue); err != nil {
+	login, _ := security.Retrieve(c).Get()
+	if err := m.service.Delete(login, tokenValue); err != nil {
 		return appErrWrap(err)
 	}
 	c.JSON(http.StatusOK, protocol.NewOK("ok"))

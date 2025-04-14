@@ -17,7 +17,7 @@ Content-Type: application/x-www-form-urlencoded
 Authorization: Basic test_client password
 
 grant_type = authorization_code &
-code = ddaf97e6-bd16-4251-b8f0-2727ce42d433 &
+code = 41941fbb-e584-451d-9cb0-602bb1cb365b &
 redirect_uri = http://localhost:8081 &
 code_verifier = IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2
 

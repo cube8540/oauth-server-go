@@ -46,8 +46,8 @@ func (h h) login(c *gin.Context) error {
 	if err != nil {
 		return wrap(err)
 	}
-	sl := &security.SessionLogin{Username: account.Username}
-	if err = security.StoreLogin(c, sl); err != nil {
+	login := &security.Login{Username: account.Username}
+	if err = security.Retrieve(c).Set(login); err != nil {
 		return wrap(err)
 	}
 	c.JSON(http.StatusOK, protocol.NewOK(protocol.MsgOK))

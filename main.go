@@ -7,6 +7,7 @@ import (
 	oauthhandler "oauth-server-go/oauth/handler"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
+	"oauth-server-go/security/session"
 	userhandler "oauth-server-go/user/handler"
 )
 
@@ -22,6 +23,7 @@ func main() {
 
 	route.Use(protocol.ErrorHandlerMiddleware)
 	route.Use(sessions.Sessions(applicationSessionID, store))
+	route.Use(session.SecurityStore())
 	route.Use(security.Authentication)
 
 	userhandler.Routing(route)
