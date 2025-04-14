@@ -11,9 +11,10 @@ const MsgOK = "ok"
 type ErrCode string
 
 const (
-	ErrCodeBadRequest ErrCode = "bad_request"
-	ErrCodeBadState   ErrCode = "bad_state"
-	ErrCodeUnknown    ErrCode = "unknown"
+	ErrCodeBadRequest   ErrCode = "bad_request"
+	ErrCodeBadState     ErrCode = "bad_state"
+	ErrCodeUnauthorized ErrCode = "unauthorized"
+	ErrCodeUnknown      ErrCode = "unknown"
 )
 
 type Error struct {
@@ -81,6 +82,8 @@ func httpStatus(c ErrCode) int {
 	switch c {
 	case ErrCodeBadRequest, ErrCodeBadState:
 		return http.StatusBadRequest
+	case ErrCodeUnauthorized:
+		return http.StatusUnauthorized
 	default:
 		return http.StatusInternalServerError
 	}

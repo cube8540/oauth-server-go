@@ -50,6 +50,9 @@ var (
 
 	// ErrAuthorizationCodeNotFound 요청한 인가 코드를 찾을 수 없음
 	ErrAuthorizationCodeNotFound = errors.New("authorization code is not found")
+
+	// ErrUnauthorized 로그인이 되어 있지 않은 등의 인증 확인 불가
+	ErrUnauthorized = errors.New("unauthorized")
 )
 
 type Error struct {

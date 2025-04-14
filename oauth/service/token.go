@@ -1,9 +1,11 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"oauth-server-go/oauth"
 	"oauth-server-go/oauth/entity"
+	"oauth-server-go/security"
 	"time"
 )
 
@@ -380,10 +382,14 @@ func (s *TokenManagementService) GetGrantedTokens(username string) ([]entity.Tok
 }
 
 // Delete 지정된 액세스 토큰과 연관된 리프레시 토큰을 삭제한다.
-func (s *TokenManagementService) Delete(t string) error {
+func (s *TokenManagementService) Delete(c context.Context, t string) error {
 	token, err := s.repository.FindAccessTokenByValue(t)
 	if err != nil {
 		return err
+	}
+	owner, ok := c.Value(security.SessionKeyLogin).(*security.SessionLogin)
+	if !ok || owner.Username != token.Username {
+		return oauth.ErrUnauthorized
 	}
 	rt, err := s.repository.FindRefreshTokenByTokenID(token.ID)
 	if err != nil && !errors.Is(err, oauth.ErrTokenNotFound) {

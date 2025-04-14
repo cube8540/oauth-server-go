@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -255,7 +256,7 @@ type TokenManagementService interface {
 	GetGrantedTokens(username string) ([]entity.Token, error)
 
 	// Delete 특정 토큰을 삭제한다.
-	Delete(v string) error
+	Delete(c context.Context, t string) error
 }
 
 // m 토큰 관리 핸들러 구조체이다.
@@ -296,7 +297,7 @@ func (m m) tokenManagement(c *gin.Context) error {
 // URL 파라미터로 삭제할 토큰 값을 받는다.
 func (m m) deleteToken(c *gin.Context) error {
 	tokenValue := c.Param("tokenValue")
-	if err := m.service.Delete(tokenValue); err != nil {
+	if err := m.service.Delete(c, tokenValue); err != nil {
 		return appErrWrap(err)
 	}
 	c.JSON(http.StatusOK, protocol.NewOK("ok"))
@@ -340,13 +341,16 @@ func clearOriginRequest(s sessions.Session) error {
 // appErrWrap OAuth 관련 오류를 애플리케이션 오류로 변환한다.
 // 여러 OAuth 관련 오류를 적절한 HTTP 상태 코드와 메시지로 변환한다.
 func appErrWrap(err error) error {
-	if errors.Is(err, oauth.ErrClientNotFound) {
+	switch {
+	case errors.Is(err, oauth.ErrClientNotFound):
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "client is not found")
-	} else if errors.Is(err, oauth.ErrTokenNotFound) {
+	case errors.Is(err, oauth.ErrTokenNotFound):
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "token is not found")
-	} else if errors.Is(err, oauth.ErrAuthorizationCodeNotFound) {
+	case errors.Is(err, oauth.ErrUnauthorized):
+		return protocol.Wrap(err, protocol.ErrCodeUnauthorized, "unauthorized")
+	case errors.Is(err, oauth.ErrAuthorizationCodeNotFound):
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "authorization code is not found")
-	} else {
+	default:
 		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
 	}
 }

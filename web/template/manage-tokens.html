@@ -135,10 +135,7 @@
 
       // 취소 버튼
       document.getElementById('cancel-delete').addEventListener('click', function() {
-        revokeToken(function() {
-          deleteModal.classList.add('hidden');
-          fetchAndRenderTokens();
-        });
+        deleteModal.classList.add('hidden');
       });
 
       // 삭제 확인 버튼
