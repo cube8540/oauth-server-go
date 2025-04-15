@@ -205,8 +205,8 @@ func (h h) issueToken(c *gin.Context) error {
 	res := oauth.TokenResponse{
 		Token:     token.Value,
 		Type:      oauth.TokenTypeBearer,
-		ExpiresIn: token.InspectExpiredAt(),
-		Scope:     token.InspectScope(),
+		ExpiresIn: token.GetExpiredAt(),
+		Scope:     token.GetScopes(),
 	}
 	if refresh != nil {
 		res.Refresh = refresh.Value

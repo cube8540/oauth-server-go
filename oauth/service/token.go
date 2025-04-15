@@ -197,7 +197,7 @@ func (f *RefreshFlow) Generate(c *entity.Client, r *oauth.TokenRequest) (*entity
 	if err != nil {
 		return nil, nil, err
 	}
-	if rt.InspectClientID() != c.ClientID {
+	if rt.GetClientID() != c.ClientID {
 		return nil, nil, oauth.NewErr(oauth.ErrAccessDenied, "refresh token client is different")
 	}
 	if rt.ExpiredAt.Before(time.Now()) {
@@ -268,32 +268,32 @@ func (f *ClientCredentialsFlow) Generate(c *entity.Client, r *oauth.TokenRequest
 //
 // [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662
 type TokenInspector interface {
-	// InspectValue 자장되어 있는 토큰 값을 반환한다.
-	InspectValue() string
+	// GetValue 자장되어 있는 토큰 값을 반환한다.
+	GetValue() string
 
-	// InspectActive 현재 토큰이 유효한지 여부를 반환한다.
-	InspectActive() bool
+	// IsActive 현재 토큰이 유효한지 여부를 반환한다.
+	IsActive() bool
 
-	// InspectClientID 이 토큰을 소유하고 있는 문자열로 이루어진 클라이언트의 아이디를 반환한다.
+	// GetClientID 이 토큰을 소유하고 있는 문자열로 이루어진 클라이언트의 아이디를 반환한다.
 	// 클라이언트 아이디에 관해서는 [RFC 6749] 문서를 참고
 	//
 	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-2.2
-	InspectClientID() string
+	GetClientID() string
 
-	// InspectUsername 이 토큰을 발급한 유저의 아이디를 반환한다.
-	InspectUsername() string
+	// GetUsername 이 토큰을 발급한 유저의 아이디를 반환한다.
+	GetUsername() string
 
-	// InspectScope 이 토큰이 부여된 스코프를 반환한다. 스코프가 여러개일 경우 각 스코프는 공백(" ")으로 구분하여 반환한다.
+	// GetScopes 이 토큰이 부여된 스코프를 반환한다. 스코프가 여러개일 경우 각 스코프는 공백(" ")으로 구분하여 반환한다.
 	// 스코프에 관해서는 [RFC 6749] 문서를 참고
 	//
 	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
-	InspectScope() string
+	GetScopes() string
 
-	// InspectIssuedAt 토큰의 발급일을 유닉스 타임으로 반환한다.
-	InspectIssuedAt() uint
+	// GetIssuedAt 토큰의 발급일을 유닉스 타임으로 반환한다.
+	GetIssuedAt() uint
 
-	// InspectExpiredAt 만료일 까지 남은 시간을 초로 환산하여 반환한다.
-	InspectExpiredAt() uint
+	// GetExpiredAt 만료일 까지 남은 시간을 초로 환산하여 반환한다.
+	GetExpiredAt() uint
 }
 
 // TokenService 토큰 서비스
@@ -327,20 +327,20 @@ func (s *TokenService) Introspection(c *entity.Client, r *oauth.IntrospectionReq
 	if err != nil {
 		return nil, err
 	}
-	if token.InspectClientID() != c.ClientID {
+	if token.GetClientID() != c.ClientID {
 		return nil, oauth.NewErr(oauth.ErrAccessDenied, "token client is different.")
 	}
-	if !token.InspectActive() {
+	if !token.IsActive() {
 		return &oauth.Introspection{Active: false}, nil
 	}
 	intro := &oauth.Introspection{
 		Active:    true,
-		Scope:     token.InspectScope(),
-		ClientID:  token.InspectClientID(),
-		Username:  token.InspectUsername(),
+		Scope:     token.GetScopes(),
+		ClientID:  token.GetClientID(),
+		Username:  token.GetUsername(),
 		TokenType: oauth.TokenTypeBearer,
-		ExpiresIn: token.InspectExpiredAt(),
-		IssuedAt:  token.InspectIssuedAt(),
+		ExpiresIn: token.GetExpiredAt(),
+		IssuedAt:  token.GetIssuedAt(),
 	}
 
 	return intro, nil

@@ -23,7 +23,7 @@ func NewTokenDetails(t *entity.Token) TokenDetails {
 	return TokenDetails{
 		Value:      t.Value,
 		ClientName: t.Client.Name,
-		Active:     t.InspectActive(),
+		Active:     t.IsActive(),
 		Scopes:     scopes,
 		IssuedAt:   t.IssuedAt,
 		ExpiredAt:  t.ExpiredAt,

@@ -26,16 +26,16 @@ type Range struct {
 	IssuedAt, ExpiredAt time.Time
 }
 
-func (r *Range) InspectActive() bool {
+func (r *Range) IsActive() bool {
 	return r.ExpiredAt.After(time.Now())
 }
 
-func (r *Range) InspectIssuedAt() uint {
+func (r *Range) GetIssuedAt() uint {
 	return uint(r.IssuedAt.Unix())
 }
 
-func (r *Range) InspectExpiredAt() uint {
-	if r.InspectActive() {
+func (r *Range) GetExpiredAt() uint {
+	if r.IsActive() {
 		now := time.Now()
 		return uint(r.ExpiredAt.Sub(now) / time.Second)
 	}
@@ -61,19 +61,19 @@ type Token struct {
 	Range
 }
 
-func (t *Token) InspectValue() string {
+func (t *Token) GetValue() string {
 	return t.Value
 }
 
-func (t *Token) InspectClientID() string {
+func (t *Token) GetClientID() string {
 	return t.Client.ClientID
 }
 
-func (t *Token) InspectUsername() string {
+func (t *Token) GetUsername() string {
 	return t.Username
 }
 
-func (t *Token) InspectScope() string {
+func (t *Token) GetScopes() string {
 	var scopes []string
 	for _, scope := range t.Scopes {
 		scopes = append(scopes, scope.Code)
@@ -112,20 +112,20 @@ type RefreshToken struct {
 	Range
 }
 
-func (t *RefreshToken) InspectValue() string {
+func (t *RefreshToken) GetValue() string {
 	return t.Value
 }
 
-func (t *RefreshToken) InspectClientID() string {
-	return t.Token.InspectClientID()
+func (t *RefreshToken) GetClientID() string {
+	return t.Token.GetClientID()
 }
 
-func (t *RefreshToken) InspectUsername() string {
-	return t.Token.InspectUsername()
+func (t *RefreshToken) GetUsername() string {
+	return t.Token.GetUsername()
 }
 
-func (t *RefreshToken) InspectScope() string {
-	return t.Token.InspectScope()
+func (t *RefreshToken) GetScopes() string {
+	return t.Token.GetScopes()
 }
 
 func (t RefreshToken) TableName() string {

@@ -73,10 +73,10 @@ func implicitFlow(r *oauth.AuthorizationRequest, src any, redirect *url.URL) err
 	}
 	if token, ok := src.(*entity.Token); ok {
 		q := redirect.Query()
-		q.Set("access_token", token.InspectValue())
+		q.Set("access_token", token.GetValue())
 		q.Set("token_type", string(oauth.TokenTypeBearer))
-		q.Set("expires_in", strconv.FormatUint(uint64(token.InspectExpiredAt()), 10))
-		q.Set("scope", token.InspectScope())
+		q.Set("expires_in", strconv.FormatUint(uint64(token.GetExpiredAt()), 10))
+		q.Set("scope", token.GetScopes())
 		q.Set("state", r.State)
 		redirect.Fragment = q.Encode()
 	}
