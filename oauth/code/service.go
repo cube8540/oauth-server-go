@@ -49,10 +49,8 @@ func (s *Service) Retrieve(c string) (*AuthorizationCode, error) {
 	if err != nil {
 		return nil, err
 	}
-	scopes := authCode.Scopes
 	if err = s.store.Delete(authCode); err != nil {
 		return nil, err
 	}
-	authCode.Scopes = scopes
 	return authCode, nil
 }

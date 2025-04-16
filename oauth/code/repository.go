@@ -32,9 +32,15 @@ func (r *Repository) FindByCode(code string) (*AuthorizationCode, error) {
 }
 
 func (r *Repository) Delete(c *AuthorizationCode) error {
-	err := r.db.Model(c).Association("Scopes").Clear()
-	if err != nil {
+	// GORM 관계 삭제시 연관관계가 끊어지면서 데이터가 삭제된어
+	// 그럼으로 스코프를 임시로 저장해놓고 있다가 삭제 완료 후 다시 셋팅한다.
+	scopes := c.Scopes
+	if err := r.db.Model(c).Association("Scopes").Clear(); err != nil {
 		return err
 	}
-	return r.db.Delete(c).Error
+	if err := r.db.Delete(c).Error; err != nil {
+		return err
+	}
+	c.Scopes = scopes
+	return nil
 }
