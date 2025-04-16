@@ -1,7 +1,9 @@
-package entity
+package token
 
 import (
 	"github.com/google/uuid"
+	"oauth-server-go/oauth/client"
+	"oauth-server-go/oauth/code"
 	"strings"
 	"time"
 )
@@ -14,8 +16,8 @@ const tokenExpiresMinute = time.Minute * 10
 // 7일로 설정
 const refreshExpiresMinute = time.Hour * 24 * 7
 
-// TokenIDGenerator 토큰 생성 함수
-type TokenIDGenerator func() string
+// IDGenerator TokenIDGenerator 토큰 생성 함수
+type IDGenerator func() string
 
 // UUIDTokenIDGenerator UUID 토큰 생성기
 var UUIDTokenIDGenerator = func() string {
@@ -55,9 +57,9 @@ type Token struct {
 	ID       uint
 	Value    string `gorm:"column:token"`
 	ClientID uint
-	Client   Client
+	Client   client.Client
 	Username string
-	Scopes   GrantedScopes `gorm:"many2many:users.oauth2_token_scope;joinForeignKey:token_id;joinReferences:scope_id"`
+	Scopes   client.GrantedScopes `gorm:"many2many:users.oauth2_token_scope;joinForeignKey:token_id;joinReferences:scope_id"`
 	Range
 }
 
@@ -85,7 +87,7 @@ func (t Token) TableName() string {
 	return "users.oauth2_access_token"
 }
 
-func NewTokenWithCode(gen TokenIDGenerator, c *AuthorizationCode) *Token {
+func NewTokenWithCode(gen IDGenerator, c *code.AuthorizationCode) *Token {
 	return &Token{
 		Value:    gen(),
 		ClientID: c.ClientID,
@@ -95,7 +97,7 @@ func NewTokenWithCode(gen TokenIDGenerator, c *AuthorizationCode) *Token {
 	}
 }
 
-func NewToken(gen TokenIDGenerator, c *Client) *Token {
+func NewToken(gen IDGenerator, c *client.Client) *Token {
 	return &Token{
 		Value:    gen(),
 		ClientID: c.ID,
@@ -132,7 +134,7 @@ func (t RefreshToken) TableName() string {
 	return "users.oauth2_refresh_token"
 }
 
-func NewRefreshToken(t *Token, gen TokenIDGenerator) *RefreshToken {
+func NewRefreshToken(t *Token, gen IDGenerator) *RefreshToken {
 	return &RefreshToken{
 		Value:   gen(),
 		TokenID: t.ID,

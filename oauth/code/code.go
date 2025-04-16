@@ -1,10 +1,12 @@
-package entity
+package code
 
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"github.com/google/uuid"
-	"oauth-server-go/oauth"
+	"oauth-server-go/oauth/client"
+	"oauth-server-go/oauth/pkg"
 	"time"
 )
 
@@ -20,13 +22,13 @@ type AuthorizationCode struct {
 	ID                  uint
 	Value               string `gorm:"column:code"`
 	ClientID            uint
-	Client              Client
+	Client              client.Client
 	Username            string
 	State               string
 	Redirect            string
-	Scopes              []Scope `gorm:"many2many:users.oauth2_code_scope;joinForeignKey:code_id;joinReferences:scope_id"`
-	CodeChallenge       oauth.CodeChallenge
-	CodeChallengeMethod oauth.CodeChallengeMethod
+	Scopes              []client.Scope `gorm:"many2many:users.oauth2_code_scope;joinForeignKey:code_id;joinReferences:scope_id"`
+	CodeChallenge       pkg.Challenge
+	CodeChallengeMethod pkg.ChallengeMethod
 	IssuedAt, ExpiredAt time.Time
 }
 
@@ -40,9 +42,9 @@ func NewAuthCode(g AuthCodeGenerator) *AuthorizationCode {
 	return code
 }
 
-func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
+func (c *AuthorizationCode) Set(r *pkg.AuthorizationRequest) error {
 	if r.Username == "" {
-		return oauth.NewErr(oauth.ErrInvalidRequest, "username is required")
+		return fmt.Errorf("%w: username", ErrParameterMissing)
 	}
 	c.Username = r.Username
 	c.State = r.State
@@ -50,25 +52,25 @@ func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
 	c.CodeChallenge = r.CodeChallenge
 	c.CodeChallengeMethod = r.CodeChallengeMethod
 	if c.CodeChallenge != "" && c.CodeChallengeMethod == "" {
-		c.CodeChallengeMethod = oauth.CodeChallengePlan
+		c.CodeChallengeMethod = pkg.ChallengePlan
 	} else if c.CodeChallenge == "" && c.CodeChallengeMethod != "" {
-		return oauth.NewErr(oauth.ErrInvalidRequest, "code challenge is required")
+		return fmt.Errorf("%w: code challenge", ErrParameterMissing)
 	}
 	return nil
 }
 
-func (c *AuthorizationCode) Verifier(v oauth.CodeVerifier) (bool, error) {
+func (c *AuthorizationCode) Verifier(v pkg.Verifier) (bool, error) {
 	if c.CodeChallenge != "" {
 		switch c.CodeChallengeMethod {
-		case oauth.CodeChallengeS256:
+		case pkg.ChallengeS256:
 			hash := sha256.New()
 			_, err := hash.Write([]byte(v))
 			if err != nil {
-				return false, err
+				return false, fmt.Errorf("error occurred during hasing %s, %w", v, err)
 			}
 			encoded := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 			return string(c.CodeChallenge) == encoded, nil
-		case oauth.CodeChallengePlan:
+		case pkg.ChallengePlan:
 			return string(c.CodeChallenge) == string(v), nil
 		default:
 			return false, nil

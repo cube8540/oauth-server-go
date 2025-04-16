@@ -4,7 +4,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"oauth-server-go/conf"
-	oauthhandler "oauth-server-go/oauth/handler"
+	"oauth-server-go/oauth"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	"oauth-server-go/security/session"
@@ -27,7 +27,7 @@ func main() {
 	route.Use(security.Authentication)
 
 	userhandler.Routing(route)
-	oauthhandler.Routing(route)
+	oauth.Routing(route)
 
 	_ = route.Run(conf.GetServerPort())
 }

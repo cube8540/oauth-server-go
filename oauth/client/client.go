@@ -1,7 +1,8 @@
-package entity
+package client
 
 import (
-	"oauth-server-go/oauth"
+	"fmt"
+	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/sql"
 	"slices"
 	"time"
@@ -29,7 +30,7 @@ func (s GrantedScopes) GetAll(v []string) ([]Scope, error) {
 		return s, nil
 	}
 	if len(v) > len(s) {
-		return nil, oauth.NewErr(oauth.ErrInvalidScope, "scope cannot grant")
+		return nil, ErrInvalidScope
 	}
 	var scopes []Scope
 	for _, rs := range v {
@@ -37,7 +38,7 @@ func (s GrantedScopes) GetAll(v []string) ([]Scope, error) {
 			return cs.Code == rs
 		})
 		if idx < 0 {
-			return nil, oauth.NewErr(oauth.ErrInvalidScope, "scope cannot grant")
+			return nil, fmt.Errorf("%w: %s is not found", ErrInvalidScope, rs)
 		}
 		scopes = append(scopes, s[idx])
 	}
@@ -48,8 +49,8 @@ func (s GrantedScopes) GetAll(v []string) ([]Scope, error) {
 type Client struct {
 	ID           uint
 	ClientID     string
-	Name         string           `gorm:"column:client_name"`
-	Type         oauth.ClientType `gorm:"column:client_type"`
+	Name         string         `gorm:"column:client_name"`
+	Type         pkg.ClientType `gorm:"column:client_type"`
 	Secret       string
 	OwnerID      string
 	Redirects    sql.Strings   `gorm:"column:redirect_uris"`
@@ -61,22 +62,18 @@ func (c *Client) RedirectURL(url string) (string, error) {
 	if len(c.Redirects) == 1 {
 		u := c.Redirects[0]
 		if url != "" && u != url {
-			return "", oauth.NewErr(oauth.ErrInvalidRequest, "invalid redirect url")
+			return "", fmt.Errorf("%w: %s is not found", ErrInvalidRedirectURI, url)
 		}
 		return u, nil
 	}
 	if url == "" {
-		return "", oauth.NewErr(oauth.ErrInvalidRequest, "redirect url is required")
+		return "", fmt.Errorf("%w: empty string (or nil)", ErrInvalidRedirectURI)
 	}
 	i := slices.Index(c.Redirects, url)
 	if i < 0 {
-		return "", oauth.NewErr(oauth.ErrInvalidRequest, "invalid redirect url")
+		return "", fmt.Errorf("%w: %s is not found", ErrInvalidRedirectURI, url)
 	}
 	return c.Redirects[i], nil
-}
-
-func (c *Client) ContainsRedirect(url string) bool {
-	return slices.Contains(c.Redirects, url)
 }
 
 func (c *Client) TableName() string {

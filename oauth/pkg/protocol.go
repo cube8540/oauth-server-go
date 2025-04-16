@@ -1,31 +1,43 @@
-// []
-package oauth
+package pkg
 
 import (
 	"net/url"
 	"strings"
 )
 
-// CodeChallenge OAuth2 인증 코드 사용(교환) 때 인증에 사용될 코드 [RFC 7636]
+// ClientType OAuth 클라이언트 타입 [RFC 6749]
+//
+// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-2.1
+type ClientType string
+
+const (
+	ClientTypePublic       ClientType = "public"
+	ClientTypeConfidential ClientType = "confidential"
+)
+
+// Challenge OAuth2 인증 코드 사용(교환) 때 인증에 사용될 코드 [RFC 7636]
 //
 // [RFC 7636]: https://datatracker.ietf.org/doc/html/rfc7636
-type CodeChallenge string
+type Challenge string
 
-// CodeChallengeMethod [CodeChallenge] 인코딩 방법 [RFC 7636]
+// ChallengeMethod [CodeChallenge] 인코딩 방법 [RFC 7636]
 //
 // [RFC 7636]: https://datatracker.ietf.org/doc/html/rfc7636
-type CodeChallengeMethod string
+type ChallengeMethod string
 
-// [CodeChallengeMethod] 열거형 정의 "plain"과 "S256"이 있다.
+// [ChallengeMethod] 열거형 정의 "plain"과 "S256"이 있다.
 //
-// CodeChallengeMethod가 plain인 경우 code_verifier를 검사 할 때 입력 받은 값을 그대로 사용하여 검사하며,
+// ChallengeMethod가 plain인 경우 code_verifier를 검사 할 때 입력 받은 값을 그대로 사용하여 검사하며,
 // S256인 경우 SHA256 인코딩을 하여 검사하게 된다. 자세한 정보는 [RFC 7636] 을 참고
 //
 // [RFC 7636]: https://datatracker.ietf.org/doc/html/rfc7636#section-4.2
 const (
-	CodeChallengePlan CodeChallengeMethod = "plain"
-	CodeChallengeS256 CodeChallengeMethod = "S256"
+	ChallengePlan ChallengeMethod = "plain"
+	ChallengeS256 ChallengeMethod = "S256"
 )
+
+// Verifier 인가코드(authorization_code) 발급에 사용된 [CodeChallenge]
+type Verifier string
 
 // GrantType [RFC 6749] 에 정의된 OAuth2의 인가 방식
 //
@@ -39,25 +51,12 @@ const (
 	GrantTypeRefreshToken      GrantType = "refresh_token"
 )
 
-// CodeVerifier 인가코드(authorization_code) 발급에 사용된 [CodeChallenge]
-type CodeVerifier string
-
 // ResponseType /authorize에서 응답 방식을 결정할 코드
 type ResponseType string
 
 const (
 	ResponseTypeCode  ResponseType = "code"
 	ResponseTypeToken ResponseType = "token"
-)
-
-// ClientType OAuth 클라이언트 타입 [RFC 6749]
-//
-// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-2.1
-type ClientType string
-
-const (
-	ClientTypePublic       ClientType = "public"
-	ClientTypeConfidential ClientType = "confidential"
 )
 
 // ErrResponse OAuth2 에러에 대한 응답 형식 [RFC 6749]
@@ -96,14 +95,14 @@ func NewErrResponse(code, message string) ErrResponse {
 // [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
 // [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
 type AuthorizationRequest struct {
-	ClientID            string              `form:"client_id"`
-	Username            string              `form:"username"`
-	State               string              `form:"state"`
-	Redirect            string              `form:"redirect_uri"`
-	Scopes              string              `form:"scope"`
-	ResponseType        ResponseType        `form:"response_type"`
-	CodeChallenge       CodeChallenge       `form:"code_challenge"`
-	CodeChallengeMethod CodeChallengeMethod `form:"code_challenge_method"`
+	ClientID            string          `form:"client_id"`
+	Username            string          `form:"username"`
+	State               string          `form:"state"`
+	Redirect            string          `form:"redirect_uri"`
+	Scopes              string          `form:"scope"`
+	ResponseType        ResponseType    `form:"response_type"`
+	CodeChallenge       Challenge       `form:"code_challenge"`
+	CodeChallengeMethod ChallengeMethod `form:"code_challenge_method"`
 }
 
 // TokenType 엑세스 토큰 타입 자세한 사항은 [RFC 6749] 를 참고
@@ -125,16 +124,16 @@ const (
 // [Refresh]: https://datatracker.ietf.org/doc/html/rfc6749#section-6
 type (
 	TokenRequest struct {
-		GrantType    GrantType    `form:"grant_type"`
-		Code         string       `form:"code"`
-		Redirect     string       `form:"redirect_uri"`
-		CodeVerifier CodeVerifier `form:"code_verifier"`
-		Username     string       `form:"username"`
-		Password     string       `form:"password"`
-		RefreshToken string       `form:"refresh_token"`
-		Scope        string       `form:"scope"`
-		ClientID     string       `form:"client_id"`
-		Secret       string       `form:"secret"`
+		GrantType    GrantType `form:"grant_type"`
+		Code         string    `form:"code"`
+		Redirect     string    `form:"redirect_uri"`
+		CodeVerifier Verifier  `form:"code_verifier"`
+		Username     string    `form:"username"`
+		Password     string    `form:"password"`
+		RefreshToken string    `form:"refresh_token"`
+		Scope        string    `form:"scope"`
+		ClientID     string    `form:"client_id"`
+		Secret       string    `form:"secret"`
 	}
 
 	TokenResponse struct {

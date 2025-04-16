@@ -2,7 +2,11 @@ package oauth
 
 import (
 	"errors"
+	"fmt"
+	"github.com/gin-gonic/gin"
 	"net/http"
+	"net/url"
+	"oauth-server-go/oauth/pkg"
 )
 
 // [RFC 6749] 에서 정의하는 에러 코드 리스트
@@ -40,18 +44,7 @@ const (
 	ErrUnsupportedGrantType = "unsupported_grant_type"
 )
 
-// 어플리케이션 API에서 사용할 에러 리스트
 var (
-	// ErrTokenNotFound 요청한 토큰을 찾을 수 없음
-	ErrTokenNotFound = errors.New("token not found")
-
-	// ErrClientNotFound 요청한 클라이언트를 찾을 수 없음
-	ErrClientNotFound = errors.New("client not found")
-
-	// ErrAuthorizationCodeNotFound 요청한 인가 코드를 찾을 수 없음
-	ErrAuthorizationCodeNotFound = errors.New("authorization code is not found")
-
-	// ErrUnauthorized 로그인이 되어 있지 않은 등의 인증 확인 불가
 	ErrUnauthorized = errors.New("unauthorized")
 )
 
@@ -81,5 +74,84 @@ func HttpStatus(c string) int {
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+type requestFailed struct {
+	err     error
+	request *pkg.AuthorizationRequest
+}
+
+func (r *requestFailed) Error() string {
+	return r.err.Error()
+}
+
+func (r *requestFailed) Unwrap() error {
+	return r.err
+}
+
+func wrap(err error, r *pkg.AuthorizationRequest) error {
+	return &requestFailed{
+		err:     err,
+		request: r,
+	}
+}
+
+type routeErr struct {
+	err error
+	to  *url.URL
+}
+
+func (e *routeErr) Error() string {
+	return e.err.Error()
+}
+
+func (e *routeErr) Unwrap() error {
+	return e.err
+}
+
+func route(err error, to *url.URL) error {
+	return &routeErr{
+		err: err,
+		to:  to,
+	}
+}
+
+func routeWrap(err error, r *pkg.AuthorizationRequest, to *url.URL) error {
+	return route(wrap(err, r), to)
+}
+
+func parse(err error) pkg.ErrResponse {
+	var er pkg.ErrResponse
+
+	var oauthErr *Error
+	if errors.As(err, &oauthErr) {
+		er = pkg.NewErrResponse(oauthErr.Code, oauthErr.Message)
+	} else {
+		fmt.Printf("%v", err)
+		er = pkg.NewErrResponse(ErrServerError, "unknown error")
+	}
+
+	var requestErr *requestFailed
+	if errors.As(err, &requestErr) {
+		er.State = requestErr.request.State
+	}
+	return er
+}
+
+func ErrorHandleMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if len(c.Errors) > 0 && !c.Writer.Written() && c.Writer.Status() == http.StatusOK {
+			err := c.Errors.Last()
+			m := parse(err)
+
+			var routeError *routeErr
+			if errors.As(err, &routeError) {
+				c.Redirect(http.StatusMovedPermanently, m.QueryParam(routeError.to).String())
+			} else {
+				c.JSON(HttpStatus(m.Code), m)
+			}
+		}
 	}
 }

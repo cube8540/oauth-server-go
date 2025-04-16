@@ -1,7 +1,7 @@
-package handler
+package oauth
 
 import (
-	"oauth-server-go/oauth/entity"
+	"oauth-server-go/oauth/token"
 	"time"
 )
 
@@ -15,7 +15,7 @@ type TokenDetails struct {
 	ExpiredAt  time.Time `json:"expiredAt"`
 }
 
-func NewTokenDetails(t *entity.Token) TokenDetails {
+func NewTokenDetails(t *token.Token) TokenDetails {
 	var scopes []string
 	for _, scope := range t.Scopes {
 		scopes = append(scopes, scope.Code)
