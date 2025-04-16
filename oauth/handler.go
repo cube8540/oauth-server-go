@@ -3,12 +3,12 @@ package oauth
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
 	"oauth-server-go/oauth/client"
-	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
 	"oauth-server-go/protocol"
@@ -77,7 +77,7 @@ func (h h) authorize(ctx *gin.Context) error {
 		return err
 	}
 	if r.ClientID == "" {
-		return NewErr(ErrInvalidRequest, "c id is required")
+		return NewErr(pkg.ErrInvalidRequest, "c id is required")
 	}
 
 	c, err := h.clientRetriever(r.ClientID)
@@ -86,20 +86,20 @@ func (h h) authorize(ctx *gin.Context) error {
 	}
 
 	redirect, err := c.RedirectURL(r.Redirect)
-	if errors.Is(err, client.ErrInvalidRedirectURI) {
-		return NewErr(ErrInvalidRequest, "redirect url is invalid")
+	if err != nil {
+		return err
 	}
 	to, _ := url.Parse(redirect)
 	if r.ResponseType == "" {
-		return routeWrap(NewErr(ErrInvalidRequest, "require parameter is missing"), &r, to)
+		return wrap(NewErr(pkg.ErrInvalidRequest, "require parameter is missing"), &r, to)
 	}
 	if r.ResponseType != pkg.ResponseTypeCode && r.ResponseType != pkg.ResponseTypeToken {
-		return routeWrap(NewErr(ErrUnsupportedResponseType, "unsupported"), &r, to)
+		return wrap(NewErr(pkg.ErrUnsupportedResponseType, "unsupported"), &r, to)
 	}
 
 	scopes, err := c.Scopes.GetAll(pkg.SplitScope(r.Scopes))
 	if err != nil {
-		return routeWrap(err, &r, to)
+		return wrap(err, &r, to)
 	}
 	ctx.HTML(http.StatusOK, "approval.html", gin.H{
 		"scopes": scopes,
@@ -129,7 +129,7 @@ func (h h) approval(ctx *gin.Context) error {
 		return err
 	}
 	if origin == nil {
-		return NewErr(ErrInvalidRequest, "origin request is not found")
+		return NewErr(pkg.ErrInvalidRequest, "origin request is not found")
 	}
 	c, err := h.clientRetriever(origin.ClientID)
 	if err != nil {
@@ -145,18 +145,18 @@ func (h h) approval(ctx *gin.Context) error {
 
 	rs := ctx.PostFormArray("scope")
 	if len(rs) == 0 {
-		return routeWrap(NewErr(ErrInvalidScope, "resource owner denied access"), origin, to)
+		return wrap(NewErr(pkg.ErrInvalidScope, "resource owner denied access"), origin, to)
 	}
 	origin.Scopes = strings.Join(rs, " ")
 
 	src, err := h.requestConsumer(c, origin)
 	if err != nil {
-		return routeWrap(err, origin, to)
+		return wrap(err, origin, to)
 	}
 
 	enhancer := chaining(authorizationCodeFlow, implicitFlow)
 	if err = enhancer(origin, src, to); err != nil {
-		return routeWrap(err, origin, to)
+		return wrap(err, origin, to)
 	}
 
 	ctx.Redirect(http.StatusMovedPermanently, to.String())
@@ -190,7 +190,7 @@ func (h h) issueToken(ctx *gin.Context) error {
 		return err
 	}
 	if at == nil {
-		return NewErr(ErrServerError, "at cannot issued")
+		return NewErr(pkg.ErrServerError, "access token cannot issue")
 	}
 	var scopes []string
 	for _, s := range at.Scopes {
@@ -229,7 +229,7 @@ func (h h) introspection(ctx *gin.Context) error {
 		return err
 	}
 	if r.Token == "" {
-		return NewErr(ErrInvalidRequest, "token is required")
+		return NewErr(pkg.ErrInvalidRequest, "token is required")
 	}
 	clientValue, _ := ctx.Get(oauth2ShareKeyAuthClient)
 	intro, err := h.introspector(clientValue.(*client.Client), &r)
@@ -323,15 +323,12 @@ func clearOriginRequest(s sessions.Session) error {
 // 여러 OAuth 관련 오류를 적절한 HTTP 상태 코드와 메시지로 변환한다.
 func appErrWrap(err error) error {
 	switch {
-	case errors.Is(err, client.ErrNotFound):
-		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "client is not found")
 	case errors.Is(err, token.ErrAccessTokenNotFound), errors.Is(err, token.ErrRefreshTokenNotFound):
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "token is not found")
-	case errors.Is(err, ErrUnauthorized):
-		return protocol.Wrap(err, protocol.ErrCodeUnauthorized, "unauthorized")
-	case errors.Is(err, code.ErrNotFound):
-		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "authorization code is not found")
+	case errors.Is(err, token.ErrUnauthorized):
+		return protocol.Wrap(err, protocol.ErrCodeUnauthorized, "cannot access to token")
 	default:
+		fmt.Printf("%v", err)
 		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
 	}
 }

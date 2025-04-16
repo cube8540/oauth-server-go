@@ -38,7 +38,7 @@ func (f *authorizationRequestFlow) consume(c *client.Client, r *pkg.Authorizatio
 	case pkg.ResponseTypeToken:
 		return f.implicitFlow.Generate(c, r)
 	default:
-		return nil, NewErr(ErrUnsupportedResponseType, "unsupported")
+		return nil, NewErr(pkg.ErrUnsupportedResponseType, "unsupported")
 	}
 }
 
@@ -53,7 +53,7 @@ func (f *tokenIssueFlow) generate(c *client.Client, r *pkg.TokenRequest) (*token
 	case pkg.GrantTypeClientCredentials:
 		return f.clientCredentialsFlow.Generate(c, r)
 	default:
-		return nil, nil, NewErr(ErrUnsupportedGrantType, "unsupported")
+		return nil, nil, NewErr(pkg.ErrUnsupportedGrantType, "unsupported")
 	}
 }
 
@@ -69,7 +69,7 @@ func adaptAuthentication() token.ResourceOwnerAuthentication {
 		if errors.Is(err, user.ErrAccountNotFound) ||
 			errors.Is(err, user.ErrPasswordNotMatch) ||
 			errors.Is(err, user.ErrAccountLocked) {
-			return false, NewErr(ErrAccessDenied, "failed resource owner credentials")
+			return false, NewErr(pkg.ErrAccessDenied, "failed resource owner credentials")
 		}
 		if err != nil {
 			return false, err
@@ -108,9 +108,10 @@ func Routing(route *gin.Engine) {
 	group := route.Group("/oauth/auth")
 	group.Use(noCacheMiddleware)
 	group.Use(ErrorHandleMiddleware())
+	group.Use(ErrorWrappingMiddleware())
 
 	authorize := group.Group("/authorize")
-	authorize.Use(security.Protected(newAccessDeniedHandler()))
+	authorize.Use(security.Protected(security.AccessDeniedRedirect("/auth/login")))
 	authorize.GET("", protocol.NewHTTPHandler(h.authorize))
 	authorize.POST("", protocol.NewHTTPHandler(h.approval))
 
@@ -135,17 +136,11 @@ func noCacheMiddleware(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 }
 
-func newAccessDeniedHandler() security.AccessDeniedHandler {
-	return func(c *gin.Context) {
-		_ = c.Error(NewErr(ErrAccessDenied, "resource owner login is required"))
-	}
-}
-
 func newClientAuthRequiredMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, exists := c.Get(oauth2ShareKeyAuthClient)
 		if !exists {
-			_ = c.Error(NewErr(ErrUnauthorizedClient, "client auth is required"))
+			_ = c.Error(NewErr(pkg.ErrUnauthorizedClient, "client auth is required"))
 			c.Abort()
 		} else {
 			c.Next()

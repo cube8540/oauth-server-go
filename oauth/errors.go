@@ -6,46 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
+	"oauth-server-go/oauth/client"
+	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
-)
-
-// [RFC 6749] 에서 정의하는 에러 코드 리스트
-//
-// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749
-const (
-	// ErrInvalidRequest 필수 입력 파라미터를 입력 받지 못하였거나 지원하지 않는 파라미터가 입력됨
-	ErrInvalidRequest = "invalid_request"
-
-	// ErrUnauthorizedClient 인증된 클라이언트에는 요청한 인가 플로우를 사용할 수 없음
-	ErrUnauthorizedClient = "unauthorized_client"
-
-	// ErrAccessDenied 자원 소유자 혹은 서버가 접근을 거부함
-	ErrAccessDenied = "access_denied"
-
-	// ErrUnsupportedResponseType 지원 하지 않는 응답 타입
-	ErrUnsupportedResponseType = "unsupported_response_type"
-
-	// ErrInvalidScope 요청 받은 스코프를 알 수 없거나 잘못되었거나 유효하지 않음
-	ErrInvalidScope = "invalid_scope"
-
-	// ErrServerError 서버에서 에러가 발생함
-	ErrServerError = "server_error"
-
-	// ErrTemporaryUnavailable 요청을 처리 할 수 없음
-	ErrTemporaryUnavailable = "temporarily_unavailable"
-
-	// ErrInvalidClient 클라이언트 인증에 실패함
-	ErrInvalidClient = "invalid_client"
-
-	// ErrInvalidGrant 인증이 잘못 되었거나 리플레시 토큰등이 유효 하지 않음
-	ErrInvalidGrant = "invalid_grant"
-
-	// ErrUnsupportedGrantType 지원하지 않은 인가 타입
-	ErrUnsupportedGrantType = "unsupported_grant_type"
-)
-
-var (
-	ErrUnauthorized = errors.New("unauthorized")
+	"oauth-server-go/oauth/token"
 )
 
 type Error struct {
@@ -64,34 +28,21 @@ func NewErr(code, message string) error {
 	}
 }
 
-func HttpStatus(c string) int {
-	switch c {
-	case ErrInvalidRequest, ErrInvalidGrant, ErrInvalidScope, ErrInvalidClient:
-		return http.StatusBadRequest
-	case ErrAccessDenied, ErrUnauthorizedClient:
-		return http.StatusUnauthorized
-	case ErrTemporaryUnavailable:
-		return http.StatusServiceUnavailable
-	default:
-		return http.StatusInternalServerError
-	}
-}
-
-type requestFailed struct {
+type authorizeError struct {
 	err     error
 	request *pkg.AuthorizationRequest
 }
 
-func (r *requestFailed) Error() string {
+func (r *authorizeError) Error() string {
 	return r.err.Error()
 }
 
-func (r *requestFailed) Unwrap() error {
+func (r *authorizeError) Unwrap() error {
 	return r.err
 }
 
-func wrap(err error, r *pkg.AuthorizationRequest) error {
-	return &requestFailed{
+func wrapAuthorizeError(err error, r *pkg.AuthorizationRequest) error {
+	return &authorizeError{
 		err:     err,
 		request: r,
 	}
@@ -110,15 +61,73 @@ func (e *routeErr) Unwrap() error {
 	return e.err
 }
 
-func route(err error, to *url.URL) error {
+func wrapRoute(err error, to *url.URL) error {
 	return &routeErr{
 		err: err,
 		to:  to,
 	}
 }
 
-func routeWrap(err error, r *pkg.AuthorizationRequest, to *url.URL) error {
-	return route(wrap(err, r), to)
+func wrap(err error, r *pkg.AuthorizationRequest, to *url.URL) error {
+	return wrapRoute(wrapAuthorizeError(err, r), to)
+}
+
+func needErrorWrite(c *gin.Context) bool {
+	return len(c.Errors) > 0 && !c.Writer.Written() && c.Writer.Status() == http.StatusOK
+}
+
+func ErrorWrappingMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if needErrorWrite(c) {
+			err := c.Errors.Last()
+
+			var oauthErr *Error
+			if !errors.As(err, &oauthErr) {
+				_ = c.Error(oauthErrWrap(err))
+			}
+		}
+	}
+}
+
+func ErrorHandleMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Next()
+		if needErrorWrite(c) {
+			err := c.Errors.Last()
+			m := parse(err)
+
+			var routeError *routeErr
+			if errors.As(err, &routeError) {
+				c.Redirect(http.StatusMovedPermanently, m.QueryParam(routeError.to).String())
+			} else {
+				c.JSON(httpStatus(m.Code), m)
+			}
+		}
+	}
+}
+
+func oauthErrWrap(err error) error {
+	switch {
+	case errors.Is(err, token.ErrAccessTokenNotFound),
+		errors.Is(err, token.ErrRefreshTokenNotFound),
+		errors.Is(err, token.ErrInvalidRequest),
+		errors.Is(err, client.ErrInvalidRequest),
+		errors.Is(err, client.ErrInvalidRedirectURI),
+		errors.Is(err, client.ErrNotFound),
+		errors.Is(err, code.ErrParameterMissing),
+		errors.Is(err, code.ErrNotFound):
+		return NewErr(pkg.ErrInvalidRequest, err.Error())
+	case errors.Is(err, token.ErrUnauthorized),
+		errors.Is(err, token.ErrTokenCannotGrant),
+		errors.Is(err, client.ErrAuthentication):
+		return NewErr(pkg.ErrInvalidGrant, err.Error())
+	case errors.Is(err, client.ErrInvalidScope):
+		return NewErr(pkg.ErrInvalidScope, err.Error())
+	default:
+		fmt.Printf("%v", err)
+		return NewErr(pkg.ErrServerError, "internal server error")
+	}
 }
 
 func parse(err error) pkg.ErrResponse {
@@ -129,29 +138,25 @@ func parse(err error) pkg.ErrResponse {
 		er = pkg.NewErrResponse(oauthErr.Code, oauthErr.Message)
 	} else {
 		fmt.Printf("%v", err)
-		er = pkg.NewErrResponse(ErrServerError, "unknown error")
+		er = pkg.NewErrResponse(pkg.ErrServerError, "unknown error")
 	}
 
-	var requestErr *requestFailed
+	var requestErr *authorizeError
 	if errors.As(err, &requestErr) {
 		er.State = requestErr.request.State
 	}
 	return er
 }
 
-func ErrorHandleMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Next()
-		if len(c.Errors) > 0 && !c.Writer.Written() && c.Writer.Status() == http.StatusOK {
-			err := c.Errors.Last()
-			m := parse(err)
-
-			var routeError *routeErr
-			if errors.As(err, &routeError) {
-				c.Redirect(http.StatusMovedPermanently, m.QueryParam(routeError.to).String())
-			} else {
-				c.JSON(HttpStatus(m.Code), m)
-			}
-		}
+func httpStatus(c string) int {
+	switch c {
+	case pkg.ErrInvalidRequest, pkg.ErrInvalidGrant, pkg.ErrInvalidScope, pkg.ErrInvalidClient:
+		return http.StatusBadRequest
+	case pkg.ErrAccessDenied, pkg.ErrUnauthorizedClient:
+		return http.StatusUnauthorized
+	case pkg.ErrTemporaryUnavailable:
+		return http.StatusServiceUnavailable
+	default:
+		return http.StatusInternalServerError
 	}
 }

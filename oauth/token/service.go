@@ -58,7 +58,12 @@ func (s *AuthorizationCodeFlow) Generate(c *client.Client, r *pkg.TokenRequest) 
 	}
 	authCode, err := s.consume(r.Code)
 	if err != nil {
-		return nil, nil, err
+		switch {
+		case errors.Is(err, code.ErrNotFound):
+			return nil, nil, fmt.Errorf("%w: authorization code is not found(%s)", ErrTokenCannotGrant, r.Code)
+		default:
+			return nil, nil, err
+		}
 	}
 	if authCode.ClientID != c.ID {
 		return nil, nil, fmt.Errorf("%w: authorization code client is different", ErrUnauthorized)
