@@ -23,11 +23,7 @@ func NewService(r Store, h crypto.Hasher) *Service {
 }
 
 func (s *Service) GetClient(id string) (*Client, error) {
-	c, err := s.store.FindByClientID(id)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
+	return s.store.FindByClientID(id)
 }
 
 func (s *Service) Auth(id, secret string) (*Client, error) {
