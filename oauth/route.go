@@ -12,9 +12,6 @@ import (
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	"oauth-server-go/user"
-	"oauth-server-go/user/model"
-	userrepo "oauth-server-go/user/repository"
-	usersrv "oauth-server-go/user/service"
 )
 
 type (
@@ -58,11 +55,11 @@ func (f *tokenIssueFlow) generate(c *client.Client, r *pkg.TokenRequest) (*token
 }
 
 func adaptAuthentication() token.ResourceOwnerAuthentication {
-	accountRepository := userrepo.NewAccountRepository(conf.GetDB())
-	authService := usersrv.NewAuthService(accountRepository, crypto.NewBcryptHasher())
+	accountRepository := user.NewRepository(conf.GetDB())
+	authService := user.NewService(accountRepository, crypto.NewBcryptHasher())
 
 	return func(u, p string) (bool, error) {
-		_, err := authService.Login(&model.Login{
+		_, err := authService.Login(&user.Login{
 			Username: u,
 			Password: p,
 		})

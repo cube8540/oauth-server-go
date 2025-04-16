@@ -8,7 +8,7 @@ import (
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	"oauth-server-go/security/session"
-	userhandler "oauth-server-go/user/handler"
+	userhandler "oauth-server-go/user"
 )
 
 const applicationSessionID = "g_session_id"

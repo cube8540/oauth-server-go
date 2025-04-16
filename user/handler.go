@@ -1,4 +1,4 @@
-package handler
+package user
 
 import (
 	"errors"
@@ -8,23 +8,18 @@ import (
 	"oauth-server-go/crypto"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
-	"oauth-server-go/user"
-	"oauth-server-go/user/entity"
-	"oauth-server-go/user/model"
-	"oauth-server-go/user/repository"
-	"oauth-server-go/user/service"
 )
 
 type h struct {
-	authentication func(r *model.Login) (*entity.Account, error)
+	authentication func(r *Login) (*Account, error)
 }
 
 func Routing(route *gin.Engine) {
-	accountRepository := repository.NewAccountRepository(conf.GetDB())
-	authService := service.NewAuthService(accountRepository, crypto.NewBcryptHasher())
+	repository := NewRepository(conf.GetDB())
+	service := NewService(repository, crypto.NewBcryptHasher())
 
 	h := h{
-		authentication: authService.Login,
+		authentication: service.Login,
 	}
 
 	auth := route.Group("/auth")
@@ -38,7 +33,7 @@ func (h h) loginPage(c *gin.Context) error {
 }
 
 func (h h) login(c *gin.Context) error {
-	var req model.Login
+	var req Login
 	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		return wrap(err)
 	}
@@ -55,11 +50,11 @@ func (h h) login(c *gin.Context) error {
 }
 
 func wrap(err error) error {
-	if errors.Is(err, user.ErrRequireParamsMissing) {
+	if errors.Is(err, ErrRequireParamsMissing) {
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "require parameter is missing")
-	} else if errors.Is(err, user.ErrAccountNotFound) || errors.Is(err, user.ErrPasswordNotMatch) {
+	} else if errors.Is(err, ErrAccountNotFound) || errors.Is(err, ErrPasswordNotMatch) {
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "id/password is not matched")
-	} else if errors.Is(err, user.ErrAccountLocked) {
+	} else if errors.Is(err, ErrAccountLocked) {
 		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "account is locked")
 	} else {
 		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
