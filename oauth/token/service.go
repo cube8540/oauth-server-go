@@ -192,11 +192,13 @@ func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *client.Client, r *pkg
 //
 // [RFC 6749 - 문단 6]: https://datatracker.ietf.org/doc/html/rfc6749#section-6
 type RefreshFlow struct {
-	tokenRepository Store
+	store Store
+
+	IDGenerator IDGenerator
 }
 
 func NewRefreshFlow(r Store) *RefreshFlow {
-	return &RefreshFlow{tokenRepository: r}
+	return &RefreshFlow{store: r}
 }
 
 // Generate 리프레시 토큰을 통해 새로운 액세스 토큰과 리프레시 토큰을 생성한다.
@@ -204,14 +206,14 @@ func (f *RefreshFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *
 	if r.RefreshToken == "" {
 		return nil, nil, fmt.Errorf("%w: refresh token is required", ErrInvalidRequest)
 	}
-	rt, err := f.tokenRepository.FindRefreshTokenByValue(r.RefreshToken)
+	rt, err := f.store.FindRefreshTokenByValue(r.RefreshToken)
 	if errors.Is(err, ErrRefreshTokenNotFound) {
 		return nil, nil, fmt.Errorf("%w: refresh token is not found", ErrTokenCannotGrant)
 	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if rt.GetClientID() != c.ClientID {
+	if rt.Token.ClientID != c.ID {
 		return nil, nil, fmt.Errorf("%w: client is different", ErrUnauthorized)
 	}
 	if rt.ExpiredAt.Before(time.Now()) {
@@ -227,13 +229,13 @@ func (f *RefreshFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *
 	if err != nil {
 		return nil, nil, err
 	}
-	newToken := NewToken(UUIDTokenIDGenerator, c)
+	newToken := NewToken(f.IDGenerator, c)
 	newToken.Username = rt.Token.Username
 	newToken.Scopes = scopes
 	var newRefreshToken *RefreshToken
 	// 기존 리프레시 토큰 삭제 및 새 토큰 저장
-	err = f.tokenRepository.Refresh(rt, newToken, func(t *Token) *RefreshToken {
-		newRefreshToken = NewRefreshToken(t, UUIDTokenIDGenerator)
+	err = f.store.Refresh(rt, newToken, func(t *Token) *RefreshToken {
+		newRefreshToken = NewRefreshToken(t, f.IDGenerator)
 		return newRefreshToken
 	})
 	if err != nil {
