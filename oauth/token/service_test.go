@@ -1,22 +1,29 @@
 package token
 
 import (
-	"errors"
+	"github.com/stretchr/testify/assert"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
-	"slices"
 	"testing"
 	"time"
 )
 
 const (
-	testTokenID  = "TEST_TOKEN_ID"
-	testClientID = 1
+	testTokenID = "TEST_TOKEN_ID"
+
+	testClientID    = 1
+	testRedirectURI = "http://localhost:8080"
+
+	testAuthCodeValue = "AUTH_CODE"
+	testCodeChallenge = "IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2"
+
 	testUsername = "USERNAME"
 )
 
-func testIdGenerator(id string) IDGenerator {
+var testScopeArray = []string{"scope_1", "scope_2", "scope_3"}
+
+func fixedTokenIDGenerator(id string) IDGenerator {
 	return func() string {
 		return id
 	}
@@ -27,17 +34,17 @@ type mockStore struct {
 	findRefreshTokenByValue func(v string) (*RefreshToken, error)
 	refresh                 func(oldRefreshToken *RefreshToken, newToken *Token, fn func(t *Token) *RefreshToken) error
 
-	savedToken   []*Token
-	savedRefresh []*RefreshToken
+	savedToken   *Token
+	savedRefresh *RefreshToken
 
-	deletedToken   []*Token
-	deletedRefresh []*RefreshToken
+	deletedToken   *Token
+	deletedRefresh *RefreshToken
 }
 
 func (m *mockStore) Save(t *Token, fn func(t *Token) *RefreshToken) error {
-	m.savedToken = append(m.savedToken, t)
+	m.savedToken = t
 	if refresh := fn(t); refresh != nil {
-		m.savedRefresh = append(m.savedRefresh, refresh)
+		m.savedRefresh = refresh
 	}
 	return nil
 }
@@ -51,11 +58,11 @@ func (m *mockStore) FindRefreshTokenByValue(v string) (*RefreshToken, error) {
 }
 
 func (m *mockStore) Refresh(oldRefreshToken *RefreshToken, newToken *Token, fn func(t *Token) *RefreshToken) error {
-	m.deletedRefresh = append(m.deletedRefresh, oldRefreshToken)
-	m.deletedToken = append(m.deletedToken, oldRefreshToken.Token)
-	m.savedToken = append(m.savedToken, newToken)
+	m.deletedRefresh = oldRefreshToken
+	m.deletedToken = oldRefreshToken.Token
+	m.savedToken = newToken
 	if refresh := fn(newToken); refresh != nil {
-		m.savedRefresh = append(m.savedRefresh, refresh)
+		m.savedRefresh = refresh
 	}
 	return nil
 }
@@ -77,40 +84,26 @@ func scopeList(c ...string) []client.Scope {
 	return scopes
 }
 
-func tokenEqualsTo(expect *Token) func(t *Token) bool {
-	return func(t *Token) bool {
-		return t.Value == expect.Value &&
-			t.ClientID == expect.ClientID &&
-			t.Username == expect.Username &&
-			slices.EqualFunc(t.Scopes, expect.Scopes, func(s1, s2 client.Scope) bool {
-				return s1.Code == s2.Code
-			})
-	}
-}
+type tokenGrantExpected struct {
+	returnedToken        *Token
+	returnedRefreshToken *RefreshToken
 
-func refreshTokenEqualsTo(expect *RefreshToken) func(t *RefreshToken) bool {
-	return func(t *RefreshToken) bool {
-		return t.Value == expect.Value && tokenEqualsTo(expect.Token)(t.Token)
-	}
-}
+	savedToken        *Token
+	savedRefreshToken *RefreshToken
 
-type tokenGrantedExpect struct {
-	token         func(t *Token) bool
-	refresh       func(t *RefreshToken) bool
-	savedToken    func(t *Token) bool
-	savedRefresh  func(t *RefreshToken) bool
-	deleteToken   func(t *Token) bool
-	deleteRefresh func(t *RefreshToken) bool
-	err           error
+	deletedToken        *Token
+	deletedRefreshToken *RefreshToken
+
+	err error
 }
 
 type tokenGrantTestCase struct {
-	name   string
-	store  *mockStore
-	idGen  IDGenerator
-	c      *client.Client
-	r      *pkg.TokenRequest
-	expect tokenGrantedExpect
+	name        string
+	store       *mockStore
+	idGenerator IDGenerator
+	client      *client.Client
+	request     *pkg.TokenRequest
+	expect      tokenGrantExpected
 }
 
 type authCodeFlowTestCase struct {
@@ -122,117 +115,194 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 	tests := []authCodeFlowTestCase{
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name: "인가 코드의 클라이언트와 요청 클라이언트가 다른 경우",
-				c:    &client.Client{ID: 1},
-				r: &pkg.TokenRequest{
-					Code: "code",
+				name:  "요청에 인가 코드가 없을 경우 ErrInvalidRequest 발생",
+				store: &mockStore{},
+				request: &pkg.TokenRequest{
+					Code: "",
 				},
-				expect: tokenGrantedExpect{
+				expect: tokenGrantExpected{
+					err: ErrInvalidRequest,
+				},
+			},
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:  "인가코드를 찾을 수 없을 경우 ErrTokenCannotGrant 발생",
+				store: &mockStore{},
+				client: &client.Client{
+					ID: testClientID,
+				},
+				request: &pkg.TokenRequest{
+					Code: testAuthCodeValue,
+				},
+				expect: tokenGrantExpected{
+					err: ErrTokenCannotGrant,
+				},
+			},
+			consumer: func(_ string) (*code.AuthorizationCode, error) {
+				return nil, code.ErrNotFound
+			},
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:  "인가 코드의 클라이언트와 요청 클라이언트가 다른 경우 ErrUnauthorized 발생",
+				store: &mockStore{},
+				client: &client.Client{
+					ID: testClientID,
+				},
+				request: &pkg.TokenRequest{
+					Code: testAuthCodeValue,
+				},
+				expect: tokenGrantExpected{
 					err: ErrUnauthorized,
 				},
 			},
-			consumer: authorizationCodeConsumer("code", &code.AuthorizationCode{
+			consumer: authorizationCodeConsumer(testAuthCodeValue, &code.AuthorizationCode{
 				ClientID: 2,
 			}),
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:   "인가 코드가 만료 되었을 경우",
-				c:      &client.Client{ID: 1},
-				r:      &pkg.TokenRequest{Code: "code"},
-				expect: tokenGrantedExpect{err: ErrTokenCannotGrant},
+				name:  "인가 코드가 만료 되었을 경우 ErrTokenCannotGrant 발생",
+				store: &mockStore{},
+				client: &client.Client{
+					ID: testClientID,
+				},
+				request: &pkg.TokenRequest{
+					Code: testAuthCodeValue,
+				},
+				expect: tokenGrantExpected{
+					err: ErrTokenCannotGrant,
+				},
 			},
-			consumer: authorizationCodeConsumer("code", &code.AuthorizationCode{
+			consumer: authorizationCodeConsumer(testAuthCodeValue, &code.AuthorizationCode{
 				ClientID:  testClientID,
-				ExpiredAt: time.Now().Add(-1 * time.Second),
+				ExpiredAt: time.Now().Add(-1 * time.Second), // 1초 전에 만료
 			}),
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name: "PKCE 검증에 실패 했을 경우",
-				c:    &client.Client{ID: 1},
-				r: &pkg.TokenRequest{
-					Code:         "code",
+				name:  "인가 코드 code_challenge 검증 실패시 ErrInvalidRequest 발생",
+				store: &mockStore{},
+				client: &client.Client{
+					ID: testClientID,
+				},
+				request: &pkg.TokenRequest{
+					Code:         testAuthCodeValue,
 					CodeVerifier: "wrong verifier",
 				},
-				expect: tokenGrantedExpect{err: ErrInvalidRequest},
+				expect: tokenGrantExpected{
+					err: ErrInvalidRequest,
+				},
 			},
-			consumer: authorizationCodeConsumer("code", &code.AuthorizationCode{
+			consumer: authorizationCodeConsumer(testAuthCodeValue, &code.AuthorizationCode{
 				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
-				CodeChallengeMethod: pkg.ChallengePlan,
-				CodeChallenge:       "abcde",
+				CodeChallenge:       testCodeChallenge,
+				CodeChallengeMethod: pkg.ChallengePlan, // PLAN 방식을 사용
 			}),
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "요청 클라이언트가 공개 클라이언트인 경우",
+				name:  "리다이렉트 URL이 일치 하지 않는 경우 ErrInvalidRequest 발생",
 				store: &mockStore{},
-				idGen: testIdGenerator(testTokenID),
-				c: &client.Client{
-					ID:   testClientID,
-					Type: pkg.ClientTypePublic,
+				client: &client.Client{
+					ID:        testClientID,
+					Redirects: []string{testRedirectURI},
 				},
-				r: &pkg.TokenRequest{
-					Code:         "code",
-					CodeVerifier: "abcde",
+				request: &pkg.TokenRequest{
+					Code:         testAuthCodeValue,
+					CodeVerifier: testCodeChallenge,
+					Redirect:     "http://wrong-redirect-url.com",
 				},
-				expect: tokenGrantedExpect{
-					savedToken: tokenEqualsTo(&Token{
-						Value:    testTokenID,
-						ClientID: testClientID,
-						Username: testUsername,
-						Scopes:   scopeList("scope_1", "scope_2", "scope_3"),
-					}),
+				expect: tokenGrantExpected{
+					err: ErrInvalidRequest,
 				},
 			},
-			consumer: authorizationCodeConsumer("code", &code.AuthorizationCode{
-				ClientID:            1,
+			consumer: authorizationCodeConsumer(testAuthCodeValue, &code.AuthorizationCode{
+				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
+				CodeChallenge:       testCodeChallenge,
 				CodeChallengeMethod: pkg.ChallengePlan,
-				CodeChallenge:       "abcde",
-				Username:            testUsername,
-				Scopes:              scopeList("scope_1", "scope_2", "scope_3"),
+				Redirect:            testRedirectURI,
 			}),
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "요청 클라이언트가 공개 클라이언트가 아닌 경우",
-				store: &mockStore{},
-				idGen: testIdGenerator(testTokenID),
-				c: &client.Client{
-					ID:   testClientID,
-					Type: pkg.ClientTypeConfidential,
+				name:        "클라이언트가 공개 클라이언트인 경우 리플레시 토큰을 생성 하지 않음",
+				store:       &mockStore{},
+				idGenerator: fixedTokenIDGenerator(testTokenID),
+				client: &client.Client{
+					ID:        testClientID,
+					Type:      pkg.ClientTypePublic,
+					Redirects: []string{testRedirectURI},
 				},
-				r: &pkg.TokenRequest{
-					Code:         "code",
-					CodeVerifier: "abcde",
+				request: &pkg.TokenRequest{
+					Code:         testAuthCodeValue,
+					CodeVerifier: testCodeChallenge,
+					Redirect:     testRedirectURI,
 				},
-				expect: tokenGrantedExpect{
-					savedToken: tokenEqualsTo(&Token{
+				expect: tokenGrantExpected{
+					savedToken: &Token{
 						Value:    testTokenID,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList("scope_1", "scope_2", "scope_3"),
-					}),
-					savedRefresh: refreshTokenEqualsTo(&RefreshToken{
+						Scopes:   scopeList(testScopeArray...),
+					},
+					savedRefreshToken: nil,
+				},
+			},
+			consumer: authorizationCodeConsumer(testAuthCodeValue, &code.AuthorizationCode{
+				ClientID:            testClientID,
+				ExpiredAt:           time.Now().Add(1 * time.Second),
+				CodeChallenge:       testCodeChallenge,
+				CodeChallengeMethod: pkg.ChallengePlan,
+				Redirect:            testRedirectURI,
+				Username:            testUsername,
+				Scopes:              scopeList(testScopeArray...),
+			}),
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:        "클라이언트가 공개 클라이언트가 아닌 경우 리플레시 토큰을 생성 함",
+				store:       &mockStore{},
+				idGenerator: fixedTokenIDGenerator(testTokenID),
+				client: &client.Client{
+					ID:        testClientID,
+					Type:      pkg.ClientTypeConfidential,
+					Redirects: []string{testRedirectURI},
+				},
+				request: &pkg.TokenRequest{
+					Code:         testAuthCodeValue,
+					CodeVerifier: testCodeChallenge,
+					Redirect:     testRedirectURI,
+				},
+				expect: tokenGrantExpected{
+					savedToken: &Token{
+						Value:    testTokenID,
+						ClientID: testClientID,
+						Username: testUsername,
+						Scopes:   scopeList(testScopeArray...),
+					},
+					savedRefreshToken: &RefreshToken{
 						Value: testTokenID,
 						Token: &Token{
 							Value:    testTokenID,
 							ClientID: testClientID,
 							Username: testUsername,
-							Scopes:   scopeList("scope_1", "scope_2", "scope_3"),
+							Scopes:   scopeList(testScopeArray...),
 						},
-					}),
+					},
 				},
 			},
-			consumer: authorizationCodeConsumer("code", &code.AuthorizationCode{
-				ClientID:            1,
+			consumer: authorizationCodeConsumer(testAuthCodeValue, &code.AuthorizationCode{
+				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
+				CodeChallenge:       testCodeChallenge,
 				CodeChallengeMethod: pkg.ChallengePlan,
-				CodeChallenge:       "abcde",
+				Redirect:            testRedirectURI,
 				Username:            testUsername,
-				Scopes:              scopeList("scope_1", "scope_2", "scope_3"),
+				Scopes:              scopeList(testScopeArray...),
 			}),
 		},
 	}
@@ -240,25 +310,36 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			srv := NewAuthorizationCodeFlow(tc.store, tc.consumer)
-			srv.IDGenerator = tc.idGen
+			srv.IDGenerator = tc.idGenerator
 
-			_, _, err := srv.Generate(tc.c, tc.r)
-			if !errors.Is(err, tc.expect.err) {
-				t.Errorf("발생한 에러가 기대 하였던 것과 다릅니다.\n기대: %v\n실제: %v", tc.expect.err, err)
+			_, _, err := srv.Generate(tc.client, tc.request)
+			if tc.expect.err != nil {
+				assert.ErrorIs(t, err, tc.expect.err)
+			} else {
+				assert.Nil(t, err)
 			}
-			if tc.store != nil {
-				if tc.expect.savedToken == nil && tc.store.savedToken != nil && len(tc.store.savedToken) > 0 {
-					t.Errorf("토큰은 저장 되지 않아야 합니다. 저장된 토큰: %+#v", tc.store.savedToken)
+			if tc.expect.savedToken != nil {
+				if assert.NotNil(t, tc.store.savedToken) {
+					assert.Equal(t, tc.store.savedToken.Value, tc.expect.savedToken.Value)
+					assert.Equal(t, tc.store.savedToken.ClientID, tc.expect.savedToken.ClientID)
+					assert.Equal(t, tc.store.savedToken.Scopes, tc.expect.savedToken.Scopes)
+					assert.Equal(t, tc.store.savedToken.Username, tc.expect.savedToken.Username)
 				}
-				if tc.expect.savedToken != nil && !slices.ContainsFunc(tc.store.savedToken, tc.expect.savedToken) {
-					t.Errorf("예상 하던 토큰들이 저장 되지 않았습니다.\n실제: %+#v", tc.store.savedToken)
+			} else {
+				assert.Nil(t, tc.store.savedToken)
+			}
+			if tc.expect.savedRefreshToken != nil {
+				if assert.NotNil(t, tc.store.savedRefresh) {
+					assert.Equal(t, tc.store.savedRefresh.Value, tc.expect.savedRefreshToken.Value)
+					if assert.NotNil(t, tc.store.savedRefresh.Token) {
+						assert.Equal(t, tc.store.savedRefresh.Token.Value, tc.expect.savedToken.Value)
+						assert.Equal(t, tc.store.savedRefresh.Token.ClientID, tc.expect.savedToken.ClientID)
+						assert.Equal(t, tc.store.savedRefresh.Token.Scopes, tc.expect.savedToken.Scopes)
+						assert.Equal(t, tc.store.savedRefresh.Token.Username, tc.expect.savedToken.Username)
+					}
 				}
-				if tc.expect.savedRefresh == nil && tc.store.savedRefresh != nil && len(tc.store.savedRefresh) > 0 {
-					t.Errorf("리플레시 토큰은 저장 되지 않아야 합니다. 저장된 리플레시 토큰: %+#v", tc.store.savedRefresh)
-				}
-				if tc.expect.savedRefresh != nil && !slices.ContainsFunc(tc.store.savedRefresh, tc.expect.savedRefresh) {
-					t.Errorf("예상 하던 리플레시 토큰들이 저장 되지 않았습니다.\n실제: %+#v", tc.store.savedRefresh)
-				}
+			} else {
+				assert.Nil(t, tc.store.savedRefresh)
 			}
 		})
 	}
