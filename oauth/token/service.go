@@ -106,12 +106,14 @@ func (s *AuthorizationCodeFlow) Generate(c *client.Client, r *pkg.TokenRequest) 
 //
 // [RFC 6749 문단 4.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
 type ImplicitFlow struct {
-	tokenRepository Store
+	store Store
+
+	IDGenerator IDGenerator
 }
 
 // NewImplicitFlow 새로운 ImplicitFlow 인스턴스를 생성한다.
 func NewImplicitFlow(r Store) *ImplicitFlow {
-	return &ImplicitFlow{tokenRepository: r}
+	return &ImplicitFlow{store: r}
 }
 
 // Generate 인가 요청을 통해 액세스 토큰을 생성한다.
@@ -125,10 +127,10 @@ func (f *ImplicitFlow) Generate(c *client.Client, r *pkg.AuthorizationRequest) (
 	if err != nil {
 		return nil, err
 	}
-	accessToken := NewToken(UUIDTokenIDGenerator, c)
+	accessToken := NewToken(f.IDGenerator, c)
 	accessToken.Username = r.Username
 	accessToken.Scopes = scopes
-	err = f.tokenRepository.Save(accessToken, func(_ *Token) *RefreshToken {
+	err = f.store.Save(accessToken, func(_ *Token) *RefreshToken {
 		// Implicit Flow는 리플레시 토큰을 생성하지 않는다.
 		return nil
 	})
