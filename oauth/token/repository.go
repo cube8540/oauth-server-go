@@ -20,7 +20,7 @@ func (r Repository) Save(t *Token, fn func(t *Token) *RefreshToken) error {
 			return err
 		}
 		if refresh := fn(t); refresh != nil {
-			if err := db.Create(refresh).Error; err != nil {
+			if err := db.Omit("Token").Create(refresh).Error; err != nil {
 				return err
 			}
 		}

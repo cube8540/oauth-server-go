@@ -2,6 +2,7 @@ package token
 
 import (
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"strings"
@@ -110,8 +111,18 @@ type RefreshToken struct {
 	ID      uint
 	Value   string `gorm:"column:token"`
 	TokenID uint   `gorm:"column:access_token_id"`
-	Token   Token
+	Token   *Token
 	Range
+}
+
+// BeforeCreate INSERT 전 토큰의 아이디를 설정한다. 이 설정으로 아래와 같이 Token 을 Omit으로 처리 할 수 있다.
+//
+//	err := db.Omit("Token").Create(refresh).Error
+func (t *RefreshToken) BeforeCreate(tx *gorm.DB) error {
+	if t.Token != nil && t.TokenID == 0 {
+		t.TokenID = t.Token.ID
+	}
+	return nil
 }
 
 func (t *RefreshToken) GetValue() string {
@@ -136,8 +147,8 @@ func (t RefreshToken) TableName() string {
 
 func NewRefreshToken(t *Token, gen IDGenerator) *RefreshToken {
 	return &RefreshToken{
-		Value:   gen(),
-		TokenID: t.ID,
-		Range:   newRange(refreshExpiresMinute),
+		Value: gen(),
+		Token: t,
+		Range: newRange(refreshExpiresMinute),
 	}
 }

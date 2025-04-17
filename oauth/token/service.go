@@ -39,12 +39,15 @@ type AuthCodeConsume func(code string) (*code.AuthorizationCode, error)
 type AuthorizationCodeFlow struct {
 	store   Store
 	consume AuthCodeConsume
+
+	IDGenerator IDGenerator
 }
 
 func NewAuthorizationCodeFlow(tr Store, consume AuthCodeConsume) *AuthorizationCodeFlow {
 	return &AuthorizationCodeFlow{
-		store:   tr,
-		consume: consume,
+		store:       tr,
+		consume:     consume,
+		IDGenerator: UUIDTokenIDGenerator,
 	}
 }
 
@@ -83,12 +86,12 @@ func (s *AuthorizationCodeFlow) Generate(c *client.Client, r *pkg.TokenRequest) 
 	if to, _ := c.RedirectURL(authCode.Redirect); to != r.Redirect {
 		return nil, nil, fmt.Errorf("%w: redirect uri is required", ErrInvalidRequest)
 	}
-	accessToken := NewTokenWithCode(UUIDTokenIDGenerator, authCode)
+	accessToken := NewTokenWithCode(s.IDGenerator, authCode)
 	var refresh *RefreshToken
 	// 액세스 토큰 저장 및 리프레시 토큰 생성 (기밀 클라이언트만 리프레시 토큰 발급)
 	err = s.store.Save(accessToken, func(t *Token) *RefreshToken {
 		if c.Type == pkg.ClientTypeConfidential {
-			refresh = NewRefreshToken(t, UUIDTokenIDGenerator)
+			refresh = NewRefreshToken(t, s.IDGenerator)
 		}
 		return refresh
 	})
