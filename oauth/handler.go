@@ -77,7 +77,7 @@ func (h h) authorize(ctx *gin.Context) error {
 		return err
 	}
 	if r.ClientID == "" {
-		return NewErr(pkg.ErrInvalidRequest, "c id is required")
+		return NewErr(pkg.ErrInvalidRequest, "client id is required")
 	}
 
 	c, err := h.clientRetriever(r.ClientID)
