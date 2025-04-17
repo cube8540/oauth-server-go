@@ -249,11 +249,13 @@ func (f *RefreshFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *
 //
 // [RFC 6749 문단 4.4]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4
 type ClientCredentialsFlow struct {
-	tokenRepository Store
+	store Store
+
+	IDGenerator IDGenerator
 }
 
 func NewClientCredentialsFlow(r Store) *ClientCredentialsFlow {
-	return &ClientCredentialsFlow{tokenRepository: r}
+	return &ClientCredentialsFlow{store: r}
 }
 
 // Generate 클라이언트 자격 증명을 통해 액세스 토큰을 생성한다.
@@ -267,10 +269,10 @@ func (f *ClientCredentialsFlow) Generate(c *client.Client, r *pkg.TokenRequest) 
 	if err != nil {
 		return nil, nil, err
 	}
-	newToken := NewToken(UUIDTokenIDGenerator, c)
+	newToken := NewToken(f.IDGenerator, c)
 	newToken.Scopes = scopes
 	// 토큰 저장 (리프레시 토큰 없음)
-	err = f.tokenRepository.Save(newToken, func(t *Token) *RefreshToken {
+	err = f.store.Save(newToken, func(t *Token) *RefreshToken {
 		return nil
 	})
 	if err != nil {

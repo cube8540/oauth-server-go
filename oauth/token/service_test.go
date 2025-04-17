@@ -717,6 +717,53 @@ func TestRefreshFlow_Generate(t *testing.T) {
 	}
 }
 
+func TestClientCredentialsFlow_Generate(t *testing.T) {
+	tests := []tokenGrantTestCase{
+		{
+			name:  "클라이언트가 공개 클라이언트인 경우 ErrUnauthorized 발생",
+			store: &mockStore{},
+			client: &client.Client{
+				Type: pkg.ClientTypePublic,
+			},
+			expect: tokenGrantExpected{
+				err: ErrUnauthorized,
+			},
+		},
+		{
+			name:        "클라이언트 토큰 부여는 리플레시 토큰을 생성하지 않음",
+			store:       &mockStore{},
+			idGenerator: fixedTokenIDGenerator(testTokenValue),
+			client: &client.Client{
+				ID:     testClientID,
+				Type:   pkg.ClientTypeConfidential,
+				Scopes: scopeList(testScopeArray...),
+			},
+			request: &pkg.TokenRequest{
+				Scope: "scope_1 scope_2",
+			},
+			expect: tokenGrantExpected{
+				savedToken: &Token{
+					Value:    testTokenValue,
+					Username: "",
+					ClientID: testClientID,
+					Scopes:   scopeList("scope_1", "scope_2"), // 요청한 스코프만 부여 받음
+				},
+				savedRefreshToken: nil,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := NewClientCredentialsFlow(tc.store)
+			srv.IDGenerator = tc.idGenerator
+
+			_, _, err := srv.Generate(tc.client, tc.request)
+			tokenGrantAssert(t, tc, err)
+		})
+	}
+}
+
 func tokenGrantAssert(t *testing.T, tc tokenGrantTestCase, err error) {
 	tokenAssert := func(actual *Token, expected *Token) {
 		assert.Equal(t, actual.Value, expected.Value)
