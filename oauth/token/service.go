@@ -44,11 +44,13 @@ type AuthorizationCodeFlow struct {
 }
 
 func NewAuthorizationCodeFlow(tr Store, consume AuthCodeConsume) *AuthorizationCodeFlow {
-	return &AuthorizationCodeFlow{
+	flow := &AuthorizationCodeFlow{
 		store:       tr,
 		consume:     consume,
 		IDGenerator: UUIDTokenIDGenerator,
 	}
+	flow.IDGenerator = UUIDTokenIDGenerator
+	return flow
 }
 
 // Generate 인가 코드를 통해 액세스 토큰과 리프레시 토큰을 생성한다.
@@ -113,7 +115,9 @@ type ImplicitFlow struct {
 
 // NewImplicitFlow 새로운 ImplicitFlow 인스턴스를 생성한다.
 func NewImplicitFlow(r Store) *ImplicitFlow {
-	return &ImplicitFlow{store: r}
+	flow := &ImplicitFlow{store: r}
+	flow.IDGenerator = UUIDTokenIDGenerator
+	return flow
 }
 
 // Generate 인가 요청을 통해 액세스 토큰을 생성한다.
@@ -152,7 +156,9 @@ type ResourceOwnerPasswordCredentialsFlow struct {
 }
 
 func NewResourceOwnerPasswordCredentialsFlow(auth ResourceOwnerAuthentication, r Store) *ResourceOwnerPasswordCredentialsFlow {
-	return &ResourceOwnerPasswordCredentialsFlow{authentication: auth, store: r}
+	flow := &ResourceOwnerPasswordCredentialsFlow{authentication: auth, store: r}
+	flow.IDGenerator = UUIDTokenIDGenerator
+	return flow
 }
 
 // Generate 사용자 자격 증명을 통해 액세스 토큰과 리프레시 토큰을 생성한다.
@@ -198,7 +204,9 @@ type RefreshFlow struct {
 }
 
 func NewRefreshFlow(r Store) *RefreshFlow {
-	return &RefreshFlow{store: r}
+	flow := &RefreshFlow{store: r}
+	flow.IDGenerator = UUIDTokenIDGenerator
+	return flow
 }
 
 // Generate 리프레시 토큰을 통해 새로운 액세스 토큰과 리프레시 토큰을 생성한다.
@@ -255,7 +263,9 @@ type ClientCredentialsFlow struct {
 }
 
 func NewClientCredentialsFlow(r Store) *ClientCredentialsFlow {
-	return &ClientCredentialsFlow{store: r}
+	flow := &ClientCredentialsFlow{store: r}
+	flow.IDGenerator = UUIDTokenIDGenerator
+	return flow
 }
 
 // Generate 클라이언트 자격 증명을 통해 액세스 토큰을 생성한다.
@@ -281,11 +291,11 @@ func (f *ClientCredentialsFlow) Generate(c *client.Client, r *pkg.TokenRequest) 
 	return newToken, nil, nil
 }
 
-// TokenInspector 토큰 상세 정보를 반환하는 인터페이스
+// Inspector 토큰 상세 정보를 반환하는 인터페이스
 // 토큰 검사(Introspection)에 필요한 정보를 제공한다. [RFC 7662] 참조
 //
 // [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662
-type TokenInspector interface {
+type Inspector interface {
 	// GetValue 자장되어 있는 토큰 값을 반환한다.
 	GetValue() string
 
@@ -329,7 +339,7 @@ func NewIntrospectionService(r Store) *IntrospectionService {
 //
 // [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662
 func (s *IntrospectionService) Introspection(c *client.Client, r *pkg.IntrospectionRequest) (*pkg.Introspection, error) {
-	var accessToken TokenInspector
+	var accessToken Inspector
 	var err error
 	switch r.TokenTypeHint {
 	case "", pkg.TokenHintAccessToken:
