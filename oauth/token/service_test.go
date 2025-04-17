@@ -313,34 +313,94 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 			srv.IDGenerator = tc.idGenerator
 
 			_, _, err := srv.Generate(tc.client, tc.request)
-			if tc.expect.err != nil {
-				assert.ErrorIs(t, err, tc.expect.err)
-			} else {
-				assert.Nil(t, err)
-			}
-			if tc.expect.savedToken != nil {
-				if assert.NotNil(t, tc.store.savedToken) {
-					assert.Equal(t, tc.store.savedToken.Value, tc.expect.savedToken.Value)
-					assert.Equal(t, tc.store.savedToken.ClientID, tc.expect.savedToken.ClientID)
-					assert.Equal(t, tc.store.savedToken.Scopes, tc.expect.savedToken.Scopes)
-					assert.Equal(t, tc.store.savedToken.Username, tc.expect.savedToken.Username)
-				}
-			} else {
-				assert.Nil(t, tc.store.savedToken)
-			}
-			if tc.expect.savedRefreshToken != nil {
-				if assert.NotNil(t, tc.store.savedRefresh) {
-					assert.Equal(t, tc.store.savedRefresh.Value, tc.expect.savedRefreshToken.Value)
-					if assert.NotNil(t, tc.store.savedRefresh.Token) {
-						assert.Equal(t, tc.store.savedRefresh.Token.Value, tc.expect.savedToken.Value)
-						assert.Equal(t, tc.store.savedRefresh.Token.ClientID, tc.expect.savedToken.ClientID)
-						assert.Equal(t, tc.store.savedRefresh.Token.Scopes, tc.expect.savedToken.Scopes)
-						assert.Equal(t, tc.store.savedRefresh.Token.Username, tc.expect.savedToken.Username)
-					}
-				}
-			} else {
-				assert.Nil(t, tc.store.savedRefresh)
-			}
+			tokenGrantAssert(t, tc.tokenGrantTestCase, err)
 		})
+	}
+}
+
+type implicitFlowTestCase struct {
+	tokenGrantTestCase
+	authorizationRequest *pkg.AuthorizationRequest
+}
+
+func TestImplicitFlow_Generate(t *testing.T) {
+	tests := []implicitFlowTestCase{
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:  "State 파라미터를 입력하지 않았을 경우 ErrInvalidRequest 발생",
+				store: &mockStore{},
+				expect: tokenGrantExpected{
+					err: ErrInvalidRequest,
+				},
+			},
+			authorizationRequest: &pkg.AuthorizationRequest{
+				State: "",
+			},
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:        "엑세스 토큰 생성",
+				store:       &mockStore{},
+				idGenerator: fixedTokenIDGenerator(testTokenID),
+				client: &client.Client{
+					ID:     testClientID,
+					Scopes: scopeList("scope_1", "scope_2", "scope_3"),
+				},
+				expect: tokenGrantExpected{
+					savedToken: &Token{
+						Value:    testTokenID,
+						ClientID: testClientID,
+						Username: testUsername,
+						Scopes:   scopeList("scope_1", "scope_2"), // 요청한 스코프를 할당 받아야 한다.
+					},
+					savedRefreshToken: nil,
+				},
+			},
+			authorizationRequest: &pkg.AuthorizationRequest{
+				State:    "ABCD",
+				Username: testUsername,
+				Scopes:   "scope_1 scope_2",
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := NewImplicitFlow(tc.store)
+			srv.IDGenerator = tc.idGenerator
+
+			_, err := srv.Generate(tc.client, tc.authorizationRequest)
+			tokenGrantAssert(t, tc.tokenGrantTestCase, err)
+		})
+	}
+}
+
+func tokenGrantAssert(t *testing.T, tc tokenGrantTestCase, err error) {
+	if tc.expect.err != nil {
+		assert.ErrorIs(t, err, tc.expect.err)
+	} else {
+		assert.Nil(t, err)
+	}
+	if tc.expect.savedToken != nil {
+		if assert.NotNil(t, tc.store.savedToken) {
+			assert.Equal(t, tc.store.savedToken.Value, tc.expect.savedToken.Value)
+			assert.Equal(t, tc.store.savedToken.ClientID, tc.expect.savedToken.ClientID)
+			assert.Equal(t, tc.store.savedToken.Scopes, tc.expect.savedToken.Scopes)
+			assert.Equal(t, tc.store.savedToken.Username, tc.expect.savedToken.Username)
+		}
+	} else {
+		assert.Nil(t, tc.store.savedToken)
+	}
+	if tc.expect.savedRefreshToken != nil {
+		if assert.NotNil(t, tc.store.savedRefresh) {
+			assert.Equal(t, tc.store.savedRefresh.Value, tc.expect.savedRefreshToken.Value)
+			if assert.NotNil(t, tc.store.savedRefresh.Token) {
+				assert.Equal(t, tc.store.savedRefresh.Token.Value, tc.expect.savedToken.Value)
+				assert.Equal(t, tc.store.savedRefresh.Token.ClientID, tc.expect.savedToken.ClientID)
+				assert.Equal(t, tc.store.savedRefresh.Token.Scopes, tc.expect.savedToken.Scopes)
+				assert.Equal(t, tc.store.savedRefresh.Token.Username, tc.expect.savedToken.Username)
+			}
+		}
+	} else {
+		assert.Nil(t, tc.store.savedRefresh)
 	}
 }
