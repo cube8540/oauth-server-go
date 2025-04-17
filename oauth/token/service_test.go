@@ -5,6 +5,7 @@ import (
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
+	"oauth-server-go/testutils"
 	"testing"
 	"time"
 )
@@ -78,14 +79,6 @@ func authorizationCodeConsumer(then string, rtn *code.AuthorizationCode) AuthCod
 		}
 		return nil, code.ErrNotFound
 	}
-}
-
-func scopeList(c ...string) []client.Scope {
-	var scopes []client.Scope
-	for _, v := range c {
-		scopes = append(scopes, client.Scope{Code: v})
-	}
-	return scopes
 }
 
 type tokenGrantExpected struct {
@@ -255,7 +248,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 						Value:    testTokenValue,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList(testScopeArray...),
+						Scopes:   testutils.ScopeList(testScopeArray...),
 					},
 					savedRefreshToken: nil,
 				},
@@ -267,7 +260,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				CodeChallengeMethod: pkg.ChallengePlan,
 				Redirect:            testRedirectURI,
 				Username:            testUsername,
-				Scopes:              scopeList(testScopeArray...),
+				Scopes:              testutils.ScopeList(testScopeArray...),
 			}),
 		},
 		{
@@ -290,7 +283,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 						Value:    testTokenValue,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList(testScopeArray...),
+						Scopes:   testutils.ScopeList(testScopeArray...),
 					},
 					savedRefreshToken: &RefreshToken{
 						Value: testTokenValue,
@@ -298,7 +291,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 							Value:    testTokenValue,
 							ClientID: testClientID,
 							Username: testUsername,
-							Scopes:   scopeList(testScopeArray...),
+							Scopes:   testutils.ScopeList(testScopeArray...),
 						},
 					},
 				},
@@ -310,7 +303,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				CodeChallengeMethod: pkg.ChallengePlan,
 				Redirect:            testRedirectURI,
 				Username:            testUsername,
-				Scopes:              scopeList(testScopeArray...),
+				Scopes:              testutils.ScopeList(testScopeArray...),
 			}),
 		},
 	}
@@ -356,14 +349,14 @@ func TestImplicitFlow_Generate(t *testing.T) {
 				idGenerator: fixedTokenIDGenerator(testTokenValue),
 				client: &client.Client{
 					ID:     testClientID,
-					Scopes: scopeList("scope_1", "scope_2", "scope_3"),
+					Scopes: testutils.ScopeList("scope_1", "scope_2", "scope_3"),
 				},
 				expect: tokenGrantExpected{
 					savedToken: &Token{
 						Value:    testTokenValue,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList("scope_1", "scope_2"), // 요청한 스코프를 할당 받아야 한다.
+						Scopes:   testutils.ScopeList("scope_1", "scope_2"), // 요청한 스코프를 할당 받아야 한다.
 					},
 					savedRefreshToken: nil,
 				},
@@ -453,7 +446,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 				client: &client.Client{
 					ID:     testClientID,
 					Type:   pkg.ClientTypePublic,
-					Scopes: scopeList("scope_1", "scope_2", "scope_3"),
+					Scopes: testutils.ScopeList("scope_1", "scope_2", "scope_3"),
 				},
 				request: &pkg.TokenRequest{
 					Username: testUsername,
@@ -464,7 +457,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 					savedToken: &Token{
 						Value:    testTokenValue,
 						ClientID: testClientID,
-						Scopes:   scopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
+						Scopes:   testutils.ScopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
 						Username: testUsername,
 					},
 					savedRefreshToken: nil,
@@ -480,7 +473,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 				client: &client.Client{
 					ID:     testClientID,
 					Type:   pkg.ClientTypeConfidential,
-					Scopes: scopeList("scope_1", "scope_2", "scope_3"),
+					Scopes: testutils.ScopeList("scope_1", "scope_2", "scope_3"),
 				},
 				request: &pkg.TokenRequest{
 					Username: testUsername,
@@ -491,7 +484,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 					savedToken: &Token{
 						Value:    testTokenValue,
 						ClientID: testClientID,
-						Scopes:   scopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
+						Scopes:   testutils.ScopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
 						Username: testUsername,
 					},
 					savedRefreshToken: &RefreshToken{
@@ -499,7 +492,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 						Token: &Token{
 							Value:    testTokenValue,
 							ClientID: testClientID,
-							Scopes:   scopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
+							Scopes:   testutils.ScopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
 							Username: testUsername,
 						},
 					},
@@ -617,7 +610,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 						ID:       testTokenID,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList(testScopeArray...),
+						Scopes:   testutils.ScopeList(testScopeArray...),
 					}
 					refreshToken := &RefreshToken{
 						ID:    testRefreshTokenID,
@@ -634,7 +627,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 			},
 			client: &client.Client{
 				ID:     testClientID,
-				Scopes: scopeList(testScopeArray...),
+				Scopes: testutils.ScopeList(testScopeArray...),
 			},
 			request: &pkg.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
@@ -651,7 +644,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 					Value:    testTokenValue,
 					ClientID: testClientID,
 					Username: testUsername,
-					Scopes:   scopeList(testScopeArray...),
+					Scopes:   testutils.ScopeList(testScopeArray...),
 				},
 				savedRefreshToken: &RefreshToken{
 					Value: testTokenValue,
@@ -659,7 +652,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 						Value:    testTokenValue,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList(testScopeArray...),
+						Scopes:   testutils.ScopeList(testScopeArray...),
 					},
 				},
 			},
@@ -673,7 +666,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 						ID:       testTokenID,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList(testScopeArray...),
+						Scopes:   testutils.ScopeList(testScopeArray...),
 					}
 					refreshToken := &RefreshToken{
 						ID:    testRefreshTokenID,
@@ -690,7 +683,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 			},
 			client: &client.Client{
 				ID:     testClientID,
-				Scopes: scopeList(testScopeArray...),
+				Scopes: testutils.ScopeList(testScopeArray...),
 			},
 			request: &pkg.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
@@ -707,7 +700,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 					Value:    testTokenValue,
 					ClientID: testClientID,
 					Username: testUsername,
-					Scopes:   scopeList("scope_1", "scope_2"),
+					Scopes:   testutils.ScopeList("scope_1", "scope_2"),
 				},
 				savedRefreshToken: &RefreshToken{
 					Value: testTokenValue,
@@ -715,7 +708,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 						Value:    testTokenValue,
 						ClientID: testClientID,
 						Username: testUsername,
-						Scopes:   scopeList("scope_1", "scope_2"),
+						Scopes:   testutils.ScopeList("scope_1", "scope_2"),
 					},
 				},
 			},
@@ -756,7 +749,7 @@ func TestClientCredentialsFlow_Generate(t *testing.T) {
 			client: &client.Client{
 				ID:     testClientID,
 				Type:   pkg.ClientTypeConfidential,
-				Scopes: scopeList(testScopeArray...),
+				Scopes: testutils.ScopeList(testScopeArray...),
 			},
 			request: &pkg.TokenRequest{
 				Scope: "scope_1 scope_2",
@@ -766,7 +759,7 @@ func TestClientCredentialsFlow_Generate(t *testing.T) {
 					Value:    testTokenValue,
 					Username: "",
 					ClientID: testClientID,
-					Scopes:   scopeList("scope_1", "scope_2"), // 요청한 스코프만 부여 받음
+					Scopes:   testutils.ScopeList("scope_1", "scope_2"), // 요청한 스코프만 부여 받음
 				},
 				savedRefreshToken: nil,
 			},

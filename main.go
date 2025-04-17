@@ -14,6 +14,8 @@ import (
 const applicationSessionID = "g_session_id"
 
 func main() {
+	conf.InitAll()
+
 	route := gin.Default()
 	store := conf.GetStore()
 

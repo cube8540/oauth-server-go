@@ -52,7 +52,7 @@ var (
 	store sessions.Store
 )
 
-func init() {
+func InitAll() {
 	initConfig()
 	initDB()
 	initSessionStore()
