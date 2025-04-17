@@ -19,6 +19,7 @@ const (
 	testCodeChallenge = "IAouJo2w1U8DnurVA5dgfqP5WZ5KLCMdiaeY89ZNum2"
 
 	testUsername = "USERNAME"
+	testPassword = "PASSWORD"
 )
 
 var testScopeArray = []string{"scope_1", "scope_2", "scope_3"}
@@ -369,6 +370,136 @@ func TestImplicitFlow_Generate(t *testing.T) {
 			srv.IDGenerator = tc.idGenerator
 
 			_, err := srv.Generate(tc.client, tc.authorizationRequest)
+			tokenGrantAssert(t, tc.tokenGrantTestCase, err)
+		})
+	}
+}
+
+func fixedAuthentication(u, p string, matched bool) ResourceOwnerAuthentication {
+	return func(username, password string) (bool, error) {
+		if username == u && password == p {
+			return matched, nil
+		}
+		return false, nil
+	}
+}
+
+type resourceOwnerFlowTestCase struct {
+	tokenGrantTestCase
+	authentication ResourceOwnerAuthentication
+}
+
+func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
+	tests := []resourceOwnerFlowTestCase{
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:  "유저 아이디 미입력시 ErrInvalidRequest 발생",
+				store: &mockStore{},
+				request: &pkg.TokenRequest{
+					Username: "",
+				},
+				expect: tokenGrantExpected{
+					err: ErrInvalidRequest,
+				},
+			},
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:  "유저 패스워드 미입력시 ErrInvalidRequest 발생",
+				store: &mockStore{},
+				request: &pkg.TokenRequest{
+					Username: testUsername,
+					Password: "",
+				},
+				expect: tokenGrantExpected{
+					err: ErrInvalidRequest,
+				},
+			},
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:  "회원 인증에 실패시 ErrUnauthorized 발생",
+				store: &mockStore{},
+				request: &pkg.TokenRequest{
+					Username: testUsername,
+					Password: testPassword,
+				},
+				expect: tokenGrantExpected{
+					err: ErrUnauthorized,
+				},
+			},
+			authentication: fixedAuthentication(testUsername, testPassword, false),
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:        "클라이언트가 공개 클라이언트인 경우 리플레시 토큰은 생성하지 않음",
+				store:       &mockStore{},
+				idGenerator: fixedTokenIDGenerator(testTokenID),
+				client: &client.Client{
+					ID:     testClientID,
+					Type:   pkg.ClientTypePublic,
+					Scopes: scopeList("scope_1", "scope_2", "scope_3"),
+				},
+				request: &pkg.TokenRequest{
+					Username: testUsername,
+					Password: testPassword,
+					Scope:    "scope_1 scope_2",
+				},
+				expect: tokenGrantExpected{
+					savedToken: &Token{
+						Value:    testTokenID,
+						ClientID: testClientID,
+						Scopes:   scopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
+						Username: testUsername,
+					},
+					savedRefreshToken: nil,
+				},
+			},
+			authentication: fixedAuthentication(testUsername, testPassword, true),
+		},
+		{
+			tokenGrantTestCase: tokenGrantTestCase{
+				name:        "클라이언트가 공개 클라이언트가 아닌 경우 리플래시 토큰을 생성한다.",
+				store:       &mockStore{},
+				idGenerator: fixedTokenIDGenerator(testTokenID),
+				client: &client.Client{
+					ID:     testClientID,
+					Type:   pkg.ClientTypeConfidential,
+					Scopes: scopeList("scope_1", "scope_2", "scope_3"),
+				},
+				request: &pkg.TokenRequest{
+					Username: testUsername,
+					Password: testPassword,
+					Scope:    "scope_1 scope_2",
+				},
+				expect: tokenGrantExpected{
+					savedToken: &Token{
+						Value:    testTokenID,
+						ClientID: testClientID,
+						Scopes:   scopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
+						Username: testUsername,
+					},
+					savedRefreshToken: &RefreshToken{
+						Value: testTokenID,
+						Token: &Token{
+							Value:    testTokenID,
+							ClientID: testClientID,
+							Scopes:   scopeList("scope_1", "scope_2"), // 요청한 리스트만 부여 받아야 한다.
+							Username: testUsername,
+						},
+					},
+				},
+			},
+			authentication: fixedAuthentication(testUsername, testPassword, true),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := NewResourceOwnerPasswordCredentialsFlow(tc.authentication, tc.store)
+			srv.IDGenerator = tc.idGenerator
+
+			_, _, err := srv.Generate(tc.client, tc.request)
 			tokenGrantAssert(t, tc.tokenGrantTestCase, err)
 		})
 	}

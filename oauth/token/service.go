@@ -145,12 +145,14 @@ type ResourceOwnerAuthentication func(username, password string) (bool, error)
 //
 // [RFC 6749 문단 Section 4.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
 type ResourceOwnerPasswordCredentialsFlow struct {
-	authentication  ResourceOwnerAuthentication
-	tokenRepository Store
+	authentication ResourceOwnerAuthentication
+	store          Store
+
+	IDGenerator IDGenerator
 }
 
 func NewResourceOwnerPasswordCredentialsFlow(auth ResourceOwnerAuthentication, r Store) *ResourceOwnerPasswordCredentialsFlow {
-	return &ResourceOwnerPasswordCredentialsFlow{authentication: auth, tokenRepository: r}
+	return &ResourceOwnerPasswordCredentialsFlow{authentication: auth, store: r}
 }
 
 // Generate 사용자 자격 증명을 통해 액세스 토큰과 리프레시 토큰을 생성한다.
@@ -169,14 +171,14 @@ func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *client.Client, r *pkg
 	if err != nil {
 		return nil, nil, err
 	}
-	accessToken := NewToken(UUIDTokenIDGenerator, c)
+	accessToken := NewToken(f.IDGenerator, c)
 	accessToken.Username = r.Username
 	accessToken.Scopes = scopes
 	var refresh *RefreshToken
 	// 액세스 토큰 저장 및 리프레시 토큰 생성 (기밀 클라이언트만 리프레시 토큰 발급)
-	err = f.tokenRepository.Save(accessToken, func(t *Token) *RefreshToken {
+	err = f.store.Save(accessToken, func(t *Token) *RefreshToken {
 		if c.Type == pkg.ClientTypeConfidential {
-			refresh = NewRefreshToken(t, UUIDTokenIDGenerator)
+			refresh = NewRefreshToken(t, f.IDGenerator)
 		}
 		return refresh
 	})
