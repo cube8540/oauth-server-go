@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/client"
 )
 
@@ -28,7 +27,7 @@ var testClient = &client.Client{
 	ID:        testClientID,
 	ClientID:  testClientIDValue,
 	Redirects: []string{testLocalHost8080, testLocalHost7070},
-	Scopes:    testutils.ScopeList(testScopesArray...),
+	Scopes:    client.ScopeList(testScopesArray...),
 }
 
 type TestToken struct {
