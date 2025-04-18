@@ -71,12 +71,12 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := authorizationCodeFlow(tc.request, tc.src, tc.url)
 			if tc.expected.err != nil {
-				assert.ErrorIs(t, err, tc.expected.err)
+				assert.ErrorIs(t, tc.expected.err, err)
 			} else {
 				assert.Nil(t, err)
 			}
 			if tc.expected.query != nil {
-				assert.Equal(t, tc.url.Query(), tc.expected.query)
+				assert.Equal(t, tc.expected.query, tc.url.Query())
 			}
 		})
 	}
@@ -131,12 +131,12 @@ func TestFlow_implicitFlow(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := implicitFlow(tc.request, tc.src, tc.url)
 			if tc.expected.err != nil {
-				assert.ErrorIs(t, err, tc.expected.err)
+				assert.ErrorIs(t, tc.expected.err, err)
 			} else {
 				assert.Nil(t, err)
 			}
 			if tc.expected.query != nil {
-				assert.Equal(t, tc.url.Fragment, tc.expected.query.Encode())
+				assert.Equal(t, tc.expected.query.Encode(), tc.url.Fragment)
 			}
 		})
 	}

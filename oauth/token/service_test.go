@@ -782,29 +782,29 @@ func TestClientCredentialsFlow_Generate(t *testing.T) {
 /////////////////////////////////////////////////////////////////////
 
 func tokenGrantAssert(t *testing.T, tc tokenGrantTestCase, err error) {
-	tokenAssert := func(actual *Token, expected *Token) {
-		assert.Equal(t, actual.Value, expected.Value)
-		assert.Equal(t, actual.ClientID, expected.ClientID)
-		assert.Equal(t, actual.Scopes, expected.Scopes)
-		assert.Equal(t, actual.Username, expected.Username)
+	tokenAssert := func(expected *Token, actual *Token) {
+		assert.Equal(t, expected.Value, actual.Value)
+		assert.Equal(t, expected.ClientID, actual.ClientID)
+		assert.Equal(t, expected.Scopes, actual.Scopes)
+		assert.Equal(t, expected.Username, actual.Username)
 	}
 	if tc.expect.err != nil {
-		assert.ErrorIs(t, err, tc.expect.err)
+		assert.ErrorIs(t, tc.expect.err, err)
 	} else {
 		assert.Nil(t, err)
 	}
 	if tc.expect.savedToken != nil {
 		if assert.NotNil(t, tc.store.savedToken) {
-			tokenAssert(tc.store.savedToken, tc.expect.savedToken)
+			tokenAssert(tc.expect.savedToken, tc.store.savedToken)
 		}
 	} else {
 		assert.Nil(t, tc.store.savedToken)
 	}
 	if tc.expect.savedRefreshToken != nil {
 		if assert.NotNil(t, tc.store.savedRefresh) {
-			assert.Equal(t, tc.store.savedRefresh.Value, tc.expect.savedRefreshToken.Value)
+			assert.Equal(t, tc.expect.savedRefreshToken.Value, tc.store.savedRefresh.Value)
 			if assert.NotNil(t, tc.store.savedRefresh.Token) {
-				tokenAssert(tc.store.savedToken, tc.expect.savedToken)
+				tokenAssert(tc.expect.savedToken, tc.store.savedToken)
 			}
 		}
 	} else {
@@ -812,14 +812,14 @@ func tokenGrantAssert(t *testing.T, tc tokenGrantTestCase, err error) {
 	}
 	if tc.expect.deletedToken != nil {
 		if assert.NotNil(t, tc.store.deletedToken) {
-			assert.Equal(t, tc.store.deletedToken.ID, tc.expect.deletedToken.ID)
+			assert.Equal(t, tc.expect.deletedToken.ID, tc.store.deletedToken.ID)
 		}
 	} else {
 		assert.Nil(t, tc.store.deletedToken)
 	}
 	if tc.expect.deletedRefreshToken != nil {
 		if assert.NotNil(t, tc.store.deletedRefresh) {
-			assert.Equal(t, tc.store.deletedRefresh.ID, tc.expect.deletedRefreshToken.ID)
+			assert.Equal(t, tc.expect.deletedRefreshToken.ID, tc.store.deletedRefresh.ID)
 		}
 	} else {
 		assert.Nil(t, tc.store.deletedRefresh)
