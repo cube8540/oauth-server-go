@@ -2,10 +2,10 @@ package token
 
 import (
 	"github.com/stretchr/testify/assert"
+	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
-	"oauth-server-go/testutils"
 	"testing"
 	"time"
 )

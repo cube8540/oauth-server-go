@@ -1,17 +1,20 @@
 package oauth
 
 import (
+	"encoding/json"
 	"errors"
+	"github.com/gin-contrib/sessions"
 	"github.com/stretchr/testify/assert"
 	"net/url"
+	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/pkg"
-	"oauth-server-go/oauth/token"
-	"oauth-server-go/testutils"
 	"testing"
 )
 
 const (
+	testSessionID = "test_sessions"
+
 	testClientID      = 1
 	testClientIDValue = "client_id"
 
@@ -26,21 +29,6 @@ var testClient = &client.Client{
 	ClientID:  testClientIDValue,
 	Redirects: []string{testLocalHost8080, testLocalHost7070},
 	Scopes:    testutils.ScopeList(testScopes...),
-}
-
-type handlerTestCase struct {
-	name            string
-	query           url.Values
-	clientRetriever func(id string) (*client.Client, error)
-	requestConsumer func(c *client.Client, request *pkg.AuthorizationRequest) (any, error)
-	tokenIssuer     func(c *client.Client, r *pkg.TokenRequest) (*token.Token, *token.RefreshToken, error)
-	introspector    func(c *client.Client, r *pkg.IntrospectionRequest) (*pkg.Introspection, error)
-	expect          expect
-}
-
-type expect struct {
-	oauthErr *Error
-	err      error
 }
 
 func urlParse(u string) *url.URL {
@@ -66,7 +54,7 @@ func TestHandler_authorize(t *testing.T) {
 			"client_id": nil,
 		}
 
-		c, _ := testutils.MockGin(query, nil)
+		c, _, _ := testutils.MockGin(query, nil)
 		err := handler.authorize(c)
 
 		var oauthErr *Error
@@ -83,7 +71,7 @@ func TestHandler_authorize(t *testing.T) {
 			"redirect_uri":  []string{testLocalHost8080},
 		}
 
-		c, _ := testutils.MockGin(query, nil)
+		c, _, _ := testutils.MockGin(query, nil)
 		err := handler.authorize(c)
 		assertWrapError(t, err, pkg.ErrInvalidRequest, urlParse(testLocalHost8080))
 	})
@@ -94,9 +82,35 @@ func TestHandler_authorize(t *testing.T) {
 			"redirect_uri":  []string{testLocalHost8080},
 		}
 
-		c, _ := testutils.MockGin(query, nil)
+		c, _, _ := testutils.MockGin(query, nil)
 		err := handler.authorize(c)
 		assertWrapError(t, err, pkg.ErrUnsupportedResponseType, urlParse(testLocalHost8080))
+	})
+	t.Run("세션에 요청 정보를 저장", func(t *testing.T) {
+		query := url.Values{
+			"client_id":     []string{testClientIDValue},
+			"response_type": []string{string(pkg.ResponseTypeCode)},
+			"redirect_uri":  []string{testLocalHost8080},
+			"scope":         []string{"scope_1 scope_2"},
+		}
+
+		c, _, engine := testutils.MockGin(query, nil)
+		engine.HTMLRender = testutils.NewHTMLRender()
+
+		s := testutils.NewSessions(testSessionID)
+		c.Set(sessions.DefaultKey, s)
+
+		_ = handler.authorize(c)
+
+		origin := &pkg.AuthorizationRequest{
+			ClientID:     testClientIDValue,
+			Redirect:     testLocalHost8080,
+			Scopes:       "scope_1 scope_2",
+			ResponseType: pkg.ResponseTypeCode,
+		}
+		expect, _ := json.Marshal(origin)
+		saved := s.Get(sessionKeyOriginAuthRequest)
+		assert.Equal(t, saved, expect)
 	})
 }
 
