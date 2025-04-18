@@ -10,16 +10,7 @@ import (
 	"testing"
 )
 
-const (
-	testUrl                = "http://localhost:8080"
-	testAuthorizationState = "state"
-
-	testAuthorizationCode = "code"
-
-	testTokenValue = "test_access_token"
-	testExpiresIn  = 10
-	testScope      = "scope_1 scope_2"
-)
+const ()
 
 type enhancerExpect struct {
 	query url.Values
@@ -41,7 +32,7 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 			request: &pkg.AuthorizationRequest{
 				ResponseType: pkg.ResponseTypeToken,
 			},
-			url: testutils.ParseURL(testUrl),
+			url: testutils.ParseURL(testLocalHost8080),
 			expected: enhancerExpect{
 				query: nil,
 			},
@@ -52,7 +43,7 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 				ResponseType: pkg.ResponseTypeCode,
 			},
 			src: "wrong src",
-			url: testutils.ParseURL(testUrl),
+			url: testutils.ParseURL(testLocalHost8080),
 			expected: enhancerExpect{
 				query: nil,
 			},
@@ -66,7 +57,7 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 				Value: testAuthorizationCode,
 				State: testAuthorizationState,
 			},
-			url: testutils.ParseURL(testUrl),
+			url: testutils.ParseURL(testLocalHost8080),
 			expected: enhancerExpect{
 				query: map[string][]string{
 					"code":  {testAuthorizationCode},
@@ -89,40 +80,6 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 			}
 		})
 	}
-}
-
-type TestToken struct {
-	value     string
-	expiresIn uint
-	scope     string
-}
-
-func (t *TestToken) GetValue() string {
-	return t.value
-}
-
-func (t *TestToken) IsActive() bool {
-	return true
-}
-
-func (t *TestToken) GetClientID() string {
-	return ""
-}
-
-func (t *TestToken) GetUsername() string {
-	return ""
-}
-
-func (t *TestToken) GetScopes() string {
-	return t.scope
-}
-
-func (t *TestToken) GetIssuedAt() uint {
-	return 0
-}
-
-func (t *TestToken) GetExpiredAt() uint {
-	return t.expiresIn
 }
 
 func TestFlow_implicitFlow(t *testing.T) {
@@ -157,7 +114,7 @@ func TestFlow_implicitFlow(t *testing.T) {
 				expiresIn: testExpiresIn,
 				scope:     testScope,
 			},
-			url: testutils.ParseURL(testUrl),
+			url: testutils.ParseURL(testLocalHost8080),
 			expected: enhancerExpect{
 				query: map[string][]string{
 					"access_token": {testTokenValue},

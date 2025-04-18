@@ -12,25 +12,6 @@ import (
 	"testing"
 )
 
-const (
-	testSessionID = "test_sessions"
-
-	testClientID      = 1
-	testClientIDValue = "client_id"
-
-	testLocalHost8080 = "http://localhost:8080"
-	testLocalHost7070 = "http://localhost:7070"
-)
-
-var testScopes = []string{"scope_1", "scope_2", "scope_3"}
-
-var testClient = &client.Client{
-	ID:        testClientID,
-	ClientID:  testClientIDValue,
-	Redirects: []string{testLocalHost8080, testLocalHost7070},
-	Scopes:    testutils.ScopeList(testScopes...),
-}
-
 func fixedClientRetriever(id string, c *client.Client) func(id string) (*client.Client, error) {
 	return func(i string) (*client.Client, error) {
 		if id == id {
