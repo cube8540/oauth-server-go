@@ -29,37 +29,3 @@ var testClient = &client.Client{
 	Redirects: []string{testLocalHost8080, testLocalHost7070},
 	Scopes:    client.ScopeList(testScopesArray...),
 }
-
-type TestToken struct {
-	value     string
-	expiresIn uint
-	scope     string
-}
-
-func (t *TestToken) GetValue() string {
-	return t.value
-}
-
-func (t *TestToken) IsActive() bool {
-	return true
-}
-
-func (t *TestToken) GetClientID() string {
-	return ""
-}
-
-func (t *TestToken) GetUsername() string {
-	return ""
-}
-
-func (t *TestToken) GetScopes() string {
-	return t.scope
-}
-
-func (t *TestToken) GetIssuedAt() uint {
-	return 0
-}
-
-func (t *TestToken) GetExpiredAt() uint {
-	return t.expiresIn
-}

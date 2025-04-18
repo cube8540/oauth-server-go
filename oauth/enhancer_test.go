@@ -6,11 +6,10 @@ import (
 	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
+	"oauth-server-go/oauth/token"
 	"strconv"
 	"testing"
 )
-
-const ()
 
 type enhancerExpect struct {
 	query url.Values
@@ -109,10 +108,10 @@ func TestFlow_implicitFlow(t *testing.T) {
 				ResponseType: pkg.ResponseTypeToken,
 				State:        testAuthorizationState,
 			},
-			src: &TestToken{
-				value:     testTokenValue,
-				expiresIn: testExpiresIn,
-				scope:     testScope,
+			src: &token.TestToken{
+				Value:     testTokenValue,
+				ExpiresIn: testExpiresIn,
+				Scope:     testScope,
 			},
 			url: testutils.ParseURL(testLocalHost8080),
 			expected: enhancerExpect{
