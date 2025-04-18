@@ -72,7 +72,7 @@ func implicitFlow(r *pkg.AuthorizationRequest, src any, redirect *url.URL) error
 	if r.ResponseType != pkg.ResponseTypeToken {
 		return nil
 	}
-	if t, ok := src.(*token.Token); ok {
+	if t, ok := src.(token.Inspector); ok {
 		q := redirect.Query()
 		q.Set("access_token", t.GetValue())
 		q.Set("token_type", string(pkg.TokenTypeBearer))

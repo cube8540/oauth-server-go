@@ -31,11 +31,6 @@ var testClient = &client.Client{
 	Scopes:    testutils.ScopeList(testScopes...),
 }
 
-func urlParse(u string) *url.URL {
-	r, _ := url.Parse(u)
-	return r
-}
-
 func fixedClientRetriever(id string, c *client.Client) func(id string) (*client.Client, error) {
 	return func(i string) (*client.Client, error) {
 		if id == id {
@@ -73,7 +68,7 @@ func TestHandler_authorize(t *testing.T) {
 
 		c, _, _ := testutils.MockGin(query, nil)
 		err := handler.authorize(c)
-		assertWrapError(t, err, pkg.ErrInvalidRequest, urlParse(testLocalHost8080))
+		assertWrapError(t, err, pkg.ErrInvalidRequest, testutils.ParseURL(testLocalHost8080))
 	})
 	t.Run("response_type이 code, token이 아닌 경우 ErrUnsupportedResponseType 발생", func(t *testing.T) {
 		query := url.Values{
@@ -84,7 +79,7 @@ func TestHandler_authorize(t *testing.T) {
 
 		c, _, _ := testutils.MockGin(query, nil)
 		err := handler.authorize(c)
-		assertWrapError(t, err, pkg.ErrUnsupportedResponseType, urlParse(testLocalHost8080))
+		assertWrapError(t, err, pkg.ErrUnsupportedResponseType, testutils.ParseURL(testLocalHost8080))
 	})
 	t.Run("세션에 요청 정보를 저장", func(t *testing.T) {
 		query := url.Values{
