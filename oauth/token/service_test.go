@@ -788,7 +788,7 @@ func tokenGrantAssert(t *testing.T, tc tokenGrantTestCase, err error) {
 		assert.Equal(t, expected.Username, actual.Username)
 	}
 	if tc.expect.err != nil {
-		assert.ErrorIs(t, tc.expect.err, err)
+		assert.ErrorIs(t, err, tc.expect.err)
 	} else {
 		assert.Nil(t, err)
 	}
