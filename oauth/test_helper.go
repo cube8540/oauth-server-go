@@ -6,6 +6,7 @@ import (
 
 const (
 	testSessionID = "test_sessions"
+	testUsername  = "username"
 
 	testClientID      = 1
 	testClientIDValue = "client_id"
