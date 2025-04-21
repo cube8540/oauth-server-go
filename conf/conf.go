@@ -2,61 +2,24 @@ package conf
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
-	"time"
 )
 
-type (
-	DB struct {
-		Host        string `json:"host"`
-		Port        int    `json:"port"`
-		Username    string `json:"username"`
-		Password    string `json:"password"`
-		Dbname      string `json:"dbname"`
-		MaxIdleSize int    `json:"max_idle_size"`
-		MaxOpenSize int    `json:"max_open_size"`
-	}
+type configuration struct {
+	Port    string        `json:"port"`
+	DB      dbConfig      `json:"db"`
+	Redis   redisConfig   `json:"redis"`
+	Session sessionConfig `json:"session"`
+}
 
-	Redis struct {
-		Host        string `json:"host"`
-		Port        int    `json:"port"`
-		MaxIdleSize int    `json:"max_idle_size"`
-	}
-
-	Session struct {
-		Secret    string `json:"secret"`
-		MaxAgeSec int    `json:"max_age_sec"`
-	}
-
-	Configuration struct {
-		Port    string  `json:"port"`
-		DB      DB      `json:"db"`
-		Redis   Redis   `json:"redis"`
-		Session Session `json:"session"`
-	}
-)
-
-var config Configuration
-
-var (
-	db    *gorm.DB
-	store sessions.Store
-)
+var config configuration
 
 func InitAll() {
 	initConfig()
-	initDB()
-	initSessionStore()
+	initGorm(&config.DB)
+	initSessionStore(&config.Redis, &config.Session)
 }
 
 func initConfig() {
@@ -79,72 +42,10 @@ func initConfig() {
 	}
 }
 
-func initDB() {
-	cfg := config.DB
-
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=Asia/Seoul",
-		cfg.Host, cfg.Username, cfg.Password, cfg.Dbname, strconv.Itoa(cfg.Port))
-
-	newLogger := logger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
-		logger.Config{
-			SlowThreshold:             time.Second, // Slow SQL threshold
-			LogLevel:                  logger.Info, // Log level
-			IgnoreRecordNotFoundError: false,       // Ignore ErrRecordNotFound error for logger
-			ParameterizedQueries:      false,       // Don't include params in the SQL log
-			Colorful:                  true,        // Disable color
-		},
-	)
-	conn, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		PrepareStmt: true,
-		Logger:      newLogger,
-	})
-	if err != nil {
-		panic(err)
-	}
-
-	sqlDB, err := conn.DB()
-	if err != nil {
-		panic(err)
-	}
-	sqlDB.SetMaxIdleConns(cfg.MaxIdleSize)
-	sqlDB.SetMaxOpenConns(cfg.MaxOpenSize)
-
-	db = conn
-}
-
-func initSessionStore() {
-	redisOpt := config.Redis
-	sessionOpt := config.Session
-
-	address := redisOpt.Host + ":" + strconv.Itoa(redisOpt.Port)
-	s, err := redis.NewStore(redisOpt.MaxIdleSize, "tcp", address, "", []byte(sessionOpt.Secret))
-	if err != nil {
-		panic(err)
-	}
-
-	s.Options(sessions.Options{
-		Path:     "/",
-		MaxAge:   sessionOpt.MaxAgeSec,
-		HttpOnly: true,
-		Secure:   true,
-	})
-	store = s
-}
-
-func GetDB() *gorm.DB {
-	return db
-}
-
 func GetServerPort() string {
 	return config.Port
 }
 
-func GetStore() sessions.Store {
-	return store
-}
-
 func Close() {
-	d, _ := db.DB()
-	_ = d.Close()
+	closeDB()
 }

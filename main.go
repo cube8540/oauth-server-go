@@ -18,14 +18,12 @@ func main() {
 	defer conf.Close()
 
 	route := gin.Default()
-	store := conf.GetStore()
-
 	route.LoadHTMLGlob("web/template/*")
 	route.Static("/css", "./web/css")
 	route.Static("/js", "./web/js")
 
 	route.Use(protocol.ErrorHandlerMiddleware)
-	route.Use(sessions.Sessions(applicationSessionID, store))
+	route.Use(sessions.Sessions(applicationSessionID, conf.GetSessionStore()))
 	route.Use(session.SecurityStore())
 	route.Use(security.Authentication)
 
