@@ -15,6 +15,7 @@ const applicationSessionID = "g_session_id"
 
 func main() {
 	conf.InitAll()
+	defer conf.Close()
 
 	route := gin.Default()
 	store := conf.GetStore()

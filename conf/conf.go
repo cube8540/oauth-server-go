@@ -2,6 +2,7 @@ package conf
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/redis"
 	"gorm.io/driver/postgres"
@@ -80,7 +81,9 @@ func initConfig() {
 
 func initDB() {
 	cfg := config.DB
-	dsn := "host=" + cfg.Host + " user=" + cfg.Username + " password=" + cfg.Password + " dbname=" + cfg.Dbname + " port=" + strconv.Itoa(cfg.Port) + " sslmode=disable TimeZone=Asia/Shanghai"
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=Asia/Seoul",
+		cfg.Host, cfg.Username, cfg.Password, cfg.Dbname, strconv.Itoa(cfg.Port))
 
 	newLogger := logger.New(
 		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
@@ -139,4 +142,9 @@ func GetServerPort() string {
 
 func GetStore() sessions.Store {
 	return store
+}
+
+func Close() {
+	d, _ := db.DB()
+	_ = d.Close()
 }
