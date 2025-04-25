@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"oauth-server-go/conf"
 	"oauth-server-go/conf/db"
+	"oauth-server-go/conf/log"
 	appsession "oauth-server-go/conf/session"
 	"oauth-server-go/oauth"
 	"oauth-server-go/protocol"
@@ -17,12 +18,17 @@ const applicationSessionID = "g_session_id"
 
 func main() {
 	config := conf.Read()
+	log.NewLogger(&config.Logger)
+	defer func() {
+		_ = log.Logger().Sync()
+	}()
 
 	gormDB := db.Connect(&config.DB)
 	defer func() {
 		gormSQL, _ := gormDB.DB()
 		_ = gormSQL.Close()
 	}()
+	log.Logger().Debug("Gorm connection completed.")
 
 	sessionRediStore := appsession.NewRedisStore(&config.Redis, &config.Session)
 	session := sessions.Sessions(applicationSessionID, sessionRediStore)

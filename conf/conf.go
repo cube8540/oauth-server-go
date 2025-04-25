@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"oauth-server-go/conf/db"
+	"oauth-server-go/conf/log"
 	"oauth-server-go/conf/redis"
 	"oauth-server-go/conf/session"
 	"os"
@@ -15,6 +16,7 @@ type Config struct {
 	DB      db.Config      `json:"db"`
 	Redis   redis.Config   `json:"redis"`
 	Session session.Config `json:"session"`
+	Logger  log.Config     `json:"logger"`
 }
 
 func Read() *Config {
