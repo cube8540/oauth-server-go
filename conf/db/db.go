@@ -1,4 +1,4 @@
-package conf
+package db
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type dbConfig struct {
+type Config struct {
 	Host        string `json:"host"`
 	Port        int    `json:"port"`
 	Username    string `json:"username"`
@@ -21,9 +21,7 @@ type dbConfig struct {
 	MaxOpenSize int    `json:"max_open_size"`
 }
 
-var gormInstance *gorm.DB
-
-func initGorm(c *dbConfig) {
+func Connect(c *Config) *gorm.DB {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=Asia/Seoul",
 		c.Host, c.Username, c.Password, c.Dbname, strconv.Itoa(c.Port))
 
@@ -52,14 +50,5 @@ func initGorm(c *dbConfig) {
 	sql.SetMaxIdleConns(c.MaxIdleSize)
 	sql.SetMaxOpenConns(c.MaxOpenSize)
 
-	gormInstance = connection
-}
-
-func GetDB() *gorm.DB {
-	return gormInstance
-}
-
-func closeDB() {
-	db, _ := gormInstance.DB()
-	_ = db.Close()
+	return connection
 }

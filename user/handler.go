@@ -3,8 +3,8 @@ package user
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"net/http"
-	"oauth-server-go/conf"
 	"oauth-server-go/crypto"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
@@ -14,8 +14,8 @@ type h struct {
 	authentication func(r *Login) (*Account, error)
 }
 
-func Routing(route *gin.Engine) {
-	repository := NewRepository(conf.GetDB())
+func Routing(route *gin.Engine, db *gorm.DB) {
+	repository := NewRepository(db)
 	service := NewService(repository, crypto.NewBcryptHasher())
 
 	h := h{

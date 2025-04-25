@@ -2,27 +2,22 @@ package conf
 
 import (
 	"encoding/json"
+	"oauth-server-go/conf/db"
+	"oauth-server-go/conf/redis"
+	"oauth-server-go/conf/session"
 	"os"
 	"path/filepath"
 	"runtime"
 )
 
-type configuration struct {
-	Port    string        `json:"port"`
-	DB      dbConfig      `json:"db"`
-	Redis   redisConfig   `json:"redis"`
-	Session sessionConfig `json:"session"`
+type Config struct {
+	Port    string         `json:"port"`
+	DB      db.Config      `json:"db"`
+	Redis   redis.Config   `json:"redis"`
+	Session session.Config `json:"session"`
 }
 
-var config configuration
-
-func InitAll() {
-	initConfig()
-	initGorm(&config.DB)
-	initSessionStore(&config.Redis, &config.Session)
-}
-
-func initConfig() {
+func Read() *Config {
 	_, b, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(b))
 
@@ -35,17 +30,11 @@ func initConfig() {
 		_ = file.Close()
 	}()
 
+	var c Config
 	decoder := json.NewDecoder(file)
-	err = decoder.Decode(&config)
+	err = decoder.Decode(&c)
 	if err != nil {
 		panic(err)
 	}
-}
-
-func GetServerPort() string {
-	return config.Port
-}
-
-func Close() {
-	closeDB()
+	return &c
 }

@@ -3,7 +3,7 @@ package oauth
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
-	"oauth-server-go/conf"
+	"gorm.io/gorm"
 	"oauth-server-go/crypto"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
@@ -54,8 +54,8 @@ func (f *tokenIssueFlow) generate(c *client.Client, r *pkg.TokenRequest) (*token
 	}
 }
 
-func adaptAuthentication() token.ResourceOwnerAuthentication {
-	accountRepository := user.NewRepository(conf.GetDB())
+func adaptAuthentication(db *gorm.DB) token.ResourceOwnerAuthentication {
+	accountRepository := user.NewRepository(db)
 	authService := user.NewService(accountRepository, crypto.NewBcryptHasher())
 
 	return func(u, p string) (bool, error) {
@@ -75,10 +75,10 @@ func adaptAuthentication() token.ResourceOwnerAuthentication {
 	}
 }
 
-func Routing(route *gin.Engine) {
-	clientRepository := client.NewRepository(conf.GetDB())
-	tokenRepository := token.NewRepository(conf.GetDB())
-	authCodeRepository := code.NewRepository(conf.GetDB())
+func Routing(route *gin.Engine, db *gorm.DB) {
+	clientRepository := client.NewRepository(db)
+	tokenRepository := token.NewRepository(db)
+	authCodeRepository := code.NewRepository(db)
 
 	clientService := client.NewService(clientRepository, crypto.NewBcryptHasher())
 	tokenService := token.NewIntrospectionService(tokenRepository)
@@ -90,7 +90,7 @@ func Routing(route *gin.Engine) {
 	}
 	issueFlow := &tokenIssueFlow{
 		authorizationCodeFlow: token.NewAuthorizationCodeFlow(tokenRepository, authCodeService.Retrieve),
-		resourceOwnerFlow:     token.NewResourceOwnerPasswordCredentialsFlow(adaptAuthentication(), tokenRepository),
+		resourceOwnerFlow:     token.NewResourceOwnerPasswordCredentialsFlow(adaptAuthentication(db), tokenRepository),
 		refreshFlow:           token.NewRefreshFlow(tokenRepository),
 		clientCredentialsFlow: token.NewClientCredentialsFlow(tokenRepository),
 	}
