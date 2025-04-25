@@ -29,9 +29,15 @@ type Config struct {
 
 	// Level 지정된 로그 레벨 이상만 로깅 된다. 현재 DEBUG, INFO, ERROR 세 가지 레벨을 지정 할 수 있다. 기본 값은 DEBUG
 	Level string `json:"level"`
+
+	// StackTraceLevel 지정된 로그 레벨 이상으로 로깅 될 땐 스텍트레이스가 같이 남는다.
+	StackTraceLevel string `json:"stack_trace_level"`
 }
 
-var logger *zap.Logger
+var (
+	logger  *zap.Logger
+	sugared *zap.SugaredLogger
+)
 
 func NewLogger(c *Config) {
 	if err := os.MkdirAll(c.Dir, 0770); err != nil {
@@ -53,16 +59,20 @@ func NewLogger(c *Config) {
 	encode.EncodeTime = zapcore.ISO8601TimeEncoder
 
 	lvl := classifyLevel(c.Level)
-
 	fileCore := zapcore.NewCore(zapcore.NewJSONEncoder(encode), fileWriter, lvl)
 	consoleCore := zapcore.NewCore(zapcore.NewJSONEncoder(encode), consoleWriter, lvl)
 
 	core := zapcore.NewTee(fileCore, consoleCore)
-	logger = zap.New(core)
+	logger = zap.New(core, zap.AddCaller(), zap.AddStacktrace(classifyLevel(c.StackTraceLevel)))
+	sugared = logger.Sugar()
 }
 
 func Logger() *zap.Logger {
 	return logger
+}
+
+func Sugared() *zap.SugaredLogger {
+	return sugared
 }
 
 func classifyLevel(lvl string) zapcore.Level {

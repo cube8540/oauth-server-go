@@ -3,11 +3,11 @@ package oauth
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
+	"oauth-server-go/conf/log"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
@@ -328,7 +328,7 @@ func appErrWrap(err error) error {
 	case errors.Is(err, token.ErrUnauthorized):
 		return protocol.Wrap(err, protocol.ErrCodeUnauthorized, "cannot access to token")
 	default:
-		fmt.Printf("%v", err)
+		log.Sugared().Errorf("error occurred in oauth handler %v", err)
 		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
 	}
 }

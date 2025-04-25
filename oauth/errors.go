@@ -2,10 +2,10 @@ package oauth
 
 import (
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
+	"oauth-server-go/conf/log"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
@@ -125,7 +125,7 @@ func oauthErrWrap(err error) error {
 	case errors.Is(err, client.ErrInvalidScope):
 		return NewErr(pkg.ErrInvalidScope, err.Error())
 	default:
-		fmt.Printf("%v", err)
+		log.Sugared().Errorf("error occurred in oauth handler %v", err)
 		return NewErr(pkg.ErrServerError, "internal server error")
 	}
 }
@@ -137,7 +137,7 @@ func parse(err error) pkg.ErrResponse {
 	if errors.As(err, &oauthErr) {
 		er = pkg.NewErrResponse(oauthErr.Code, oauthErr.Message)
 	} else {
-		fmt.Printf("%v", err)
+		log.Sugared().Errorf("error occurred in oauth handler %v", err)
 		er = pkg.NewErrResponse(pkg.ErrServerError, "unknown error")
 	}
 
