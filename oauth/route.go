@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"oauth-server-go/crypto"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
@@ -56,7 +55,7 @@ func (f *tokenIssueFlow) generate(c *client.Client, r *pkg.TokenRequest) (*token
 
 func adaptAuthentication(db *gorm.DB) token.ResourceOwnerAuthentication {
 	accountRepository := user.NewRepository(db)
-	authService := user.NewService(accountRepository, crypto.NewBcryptHasher())
+	authService := user.NewService(accountRepository)
 
 	return func(u, p string) (bool, error) {
 		_, err := authService.Login(&user.Login{
@@ -80,7 +79,7 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 	tokenRepository := token.NewRepository(db)
 	authCodeRepository := code.NewRepository(db)
 
-	clientService := client.NewService(clientRepository, crypto.NewBcryptHasher())
+	clientService := client.NewService(clientRepository)
 	tokenService := token.NewIntrospectionService(tokenRepository)
 	authCodeService := code.NewService(authCodeRepository)
 

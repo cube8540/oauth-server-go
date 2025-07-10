@@ -5,7 +5,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
-	"oauth-server-go/crypto"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 )
@@ -16,7 +15,7 @@ type h struct {
 
 func Routing(route *gin.Engine, db *gorm.DB) {
 	repository := NewRepository(db)
-	service := NewService(repository, crypto.NewBcryptHasher())
+	service := NewService(repository)
 
 	h := h{
 		authentication: service.Login,

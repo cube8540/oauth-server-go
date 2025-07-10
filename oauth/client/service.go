@@ -2,8 +2,8 @@ package client
 
 import (
 	"fmt"
-	"oauth-server-go/crypto"
 	"oauth-server-go/oauth/pkg"
+	"oauth-server-go/pkg/hash"
 )
 
 type Store interface {
@@ -11,14 +11,12 @@ type Store interface {
 }
 
 type Service struct {
-	store  Store
-	hasher crypto.Hasher
+	store Store
 }
 
-func NewService(r Store, h crypto.Hasher) *Service {
+func NewService(store Store) *Service {
 	return &Service{
-		store:  r,
-		hasher: h,
+		store: store,
 	}
 }
 
@@ -37,7 +35,7 @@ func (s *Service) Auth(id, secret string) (*Client, error) {
 	if c.Type == pkg.ClientTypePublic {
 		return c, nil
 	}
-	eq, err := s.hasher.Compare(c.Secret, secret)
+	eq, err := hash.Compare(c.Secret, secret)
 	if err != nil {
 		return nil, err
 	}

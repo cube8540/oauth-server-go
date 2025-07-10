@@ -1,22 +1,18 @@
 package user
 
-import (
-	"oauth-server-go/crypto"
-)
+import "oauth-server-go/pkg/hash"
 
 type Store interface {
 	FindByUsername(u string) (*Account, error)
 }
 
 type Service struct {
-	store  Store
-	hasher crypto.Hasher
+	store Store
 }
 
-func NewService(r Store, h crypto.Hasher) *Service {
+func NewService(store Store) *Service {
 	return &Service{
-		store:  r,
-		hasher: h,
+		store: store,
 	}
 }
 
@@ -29,7 +25,7 @@ func (s *Service) Login(r *Login) (*Account, error) {
 	if err != nil {
 		return nil, err
 	}
-	if cmp, err := s.hasher.Compare(account.Password, r.Password); err != nil {
+	if cmp, err := hash.Compare(account.Password, r.Password); err != nil {
 		return nil, err
 	} else if !cmp {
 		return nil, ErrPasswordNotMatch
