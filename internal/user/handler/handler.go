@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"oauth-server-go/internal/user/codes"
 	"oauth-server-go/internal/user/service"
-	"oauth-server-go/protocol"
+	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 )
 

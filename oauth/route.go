@@ -11,7 +11,7 @@ import (
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
-	"oauth-server-go/protocol"
+	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 )
 

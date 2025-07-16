@@ -10,7 +10,7 @@ import (
 	appsession "oauth-server-go/conf/session"
 	"oauth-server-go/internal/user"
 	"oauth-server-go/oauth"
-	"oauth-server-go/protocol"
+	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 	secsession "oauth-server-go/security/session"
 )

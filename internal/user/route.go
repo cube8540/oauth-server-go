@@ -6,7 +6,7 @@ import (
 	"oauth-server-go/internal/user/handler"
 	"oauth-server-go/internal/user/repository"
 	"oauth-server-go/internal/user/service"
-	"oauth-server-go/protocol"
+	"oauth-server-go/pkg/protocol"
 )
 
 // Environment 회원 도메인 처리를 위한 환경을 제공하는 인터페이스
