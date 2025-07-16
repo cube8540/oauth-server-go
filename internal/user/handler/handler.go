@@ -4,9 +4,9 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user/codes"
 	"oauth-server-go/internal/user/service"
-	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 )
 
@@ -45,7 +45,7 @@ func (h *API) Auth(c *gin.Context) error {
 		return wrap(err)
 	}
 
-	c.JSON(http.StatusOK, protocol.NewOK(protocol.MsgOK))
+	c.JSON(http.StatusOK, web.NewSuccess(web.MsgOK))
 	return nil
 }
 
@@ -67,12 +67,12 @@ func (h *Static) LoginPage(c *gin.Context) error {
 // wrap 인자로 받은 err을 사전에 정의된 에러로 랩핑한다.
 func wrap(err error) error {
 	if errors.Is(err, codes.ErrRequireParamsMissing) {
-		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "require parameter is missing")
+		return web.Wrap(err, web.ErrCodeBadRequest, "require parameter is missing")
 	} else if errors.Is(err, codes.ErrAccountNotFound) || errors.Is(err, codes.ErrPasswordNotMatched) {
-		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "id/password is not matched")
+		return web.Wrap(err, web.ErrCodeBadRequest, "id/password is not matched")
 	} else if errors.Is(err, codes.ErrAccountLocked) {
-		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "account is locked")
+		return web.Wrap(err, web.ErrCodeBadRequest, "account is locked")
 	} else {
-		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server codes")
+		return web.Wrap(err, web.ErrCodeUnknown, "internal server codes")
 	}
 }

@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"oauth-server-go/conf/log"
+	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
-	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 	"strings"
 )
@@ -265,7 +265,7 @@ func (m m) tokenManagement(ctx *gin.Context) error {
 		if len(details) == 0 {
 			details = make([]TokenDetails, 0)
 		}
-		ctx.JSON(http.StatusOK, protocol.NewOK(details))
+		ctx.JSON(http.StatusOK, web.NewSuccess(details))
 		return nil
 	default:
 		ctx.HTML(http.StatusOK, "manage-tokens.html", gin.H{})
@@ -281,7 +281,7 @@ func (m m) deleteToken(ctx *gin.Context) error {
 	if err := m.service.Delete(login, tokenValue); err != nil {
 		return appErrWrap(err)
 	}
-	ctx.JSON(http.StatusOK, protocol.NewOK("ok"))
+	ctx.JSON(http.StatusOK, web.NewSuccess("ok"))
 	return nil
 }
 
@@ -324,11 +324,11 @@ func clearOriginRequest(s sessions.Session) error {
 func appErrWrap(err error) error {
 	switch {
 	case errors.Is(err, token.ErrAccessTokenNotFound), errors.Is(err, token.ErrRefreshTokenNotFound):
-		return protocol.Wrap(err, protocol.ErrCodeBadRequest, "token is not found")
+		return web.Wrap(err, web.ErrCodeBadRequest, "token is not found")
 	case errors.Is(err, token.ErrUnauthorized):
-		return protocol.Wrap(err, protocol.ErrCodeUnauthorized, "cannot access to token")
+		return web.Wrap(err, web.ErrCodeUnauthorized, "cannot access to token")
 	default:
 		log.Sugared().Errorf("codes occurred in oauth handler %v", err)
-		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server codes")
+		return web.Wrap(err, web.ErrCodeUnknown, "internal server codes")
 	}
 }

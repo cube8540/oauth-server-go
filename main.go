@@ -8,9 +8,9 @@ import (
 	"oauth-server-go/conf/db"
 	"oauth-server-go/conf/log"
 	appsession "oauth-server-go/conf/session"
+	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user"
 	"oauth-server-go/oauth"
-	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 	secsession "oauth-server-go/security/session"
 )
@@ -49,7 +49,7 @@ func main() {
 	route.Static("/css", "./web/css")
 	route.Static("/js", "./web/js")
 
-	route.Use(protocol.ErrorHandlerMiddleware)
+	route.Use(web.ErrorHandler)
 	route.Use(session)
 	route.Use(securityBySession)
 	route.Use(security.Authentication)

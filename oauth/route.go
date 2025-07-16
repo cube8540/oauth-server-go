@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user/codes"
 	"oauth-server-go/internal/user/repository"
 	"oauth-server-go/internal/user/service"
@@ -11,7 +12,6 @@ import (
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
-	"oauth-server-go/pkg/protocol"
 	"oauth-server-go/security"
 )
 
@@ -110,15 +110,15 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 
 	authorize := group.Group("/authorize")
 	authorize.Use(security.Protected(security.AccessDeniedRedirect("/users/auth")))
-	authorize.GET("", protocol.NewHTTPHandler(h.authorize))
-	authorize.POST("", protocol.NewHTTPHandler(h.approval))
+	authorize.GET("", web.NewHTTPHandler(h.authorize))
+	authorize.POST("", web.NewHTTPHandler(h.approval))
 
 	tokenRoute := group.Group("/token")
 	tokenRoute.Use(clientBasicAuthManage(clientService.Auth))
 	tokenRoute.Use(clientFormAuthManage(clientService.Auth))
 	tokenRoute.Use(newClientAuthRequiredMiddleware())
-	tokenRoute.POST("", protocol.NewHTTPHandler(h.issueToken))
-	tokenRoute.POST("/introspect", protocol.NewHTTPHandler(h.introspection))
+	tokenRoute.POST("", web.NewHTTPHandler(h.issueToken))
+	tokenRoute.POST("/introspect", web.NewHTTPHandler(h.introspection))
 
 	m := m{
 		service: token.NewManagementService(tokenRepository),
@@ -126,8 +126,8 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 
 	manageGroup := route.Group("/oauth/manage")
 	manageGroup.Use(security.Protected(security.AccessDeniedRedirect("/users/auth")))
-	manageGroup.GET("/tokens", protocol.NewHTTPHandler(m.tokenManagement))
-	manageGroup.DELETE("/tokens/:tokenValue", protocol.NewHTTPHandler(m.deleteToken))
+	manageGroup.GET("/tokens", web.NewHTTPHandler(m.tokenManagement))
+	manageGroup.DELETE("/tokens/:tokenValue", web.NewHTTPHandler(m.deleteToken))
 }
 
 func noCacheMiddleware(c *gin.Context) {
