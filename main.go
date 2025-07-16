@@ -3,18 +3,28 @@ package main
 import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"oauth-server-go/conf"
 	"oauth-server-go/conf/db"
 	"oauth-server-go/conf/log"
 	appsession "oauth-server-go/conf/session"
+	"oauth-server-go/internal/user"
 	"oauth-server-go/oauth"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
 	secsession "oauth-server-go/security/session"
-	"oauth-server-go/user"
 )
 
 const applicationSessionID = "g_session_id"
+
+// SystemEnvironment 시스템 환경
+type SystemEnvironment struct {
+	db *gorm.DB
+}
+
+func (s *SystemEnvironment) GetDB() *gorm.DB {
+	return s.db
+}
 
 func main() {
 	config := conf.Read()
@@ -30,8 +40,8 @@ func main() {
 	}()
 	log.Logger().Debug("Gorm connection completed.")
 
-	sessionRediStore := appsession.NewRedisStore(&config.Redis, &config.Session)
-	session := sessions.Sessions(applicationSessionID, sessionRediStore)
+	sessionRedisStore := appsession.NewRedisStore(&config.Redis, &config.Session)
+	session := sessions.Sessions(applicationSessionID, sessionRedisStore)
 	securityBySession := secsession.SecurityStore()
 
 	route := gin.Default()
@@ -44,7 +54,13 @@ func main() {
 	route.Use(securityBySession)
 	route.Use(security.Authentication)
 
-	user.Routing(route, gormDB)
+	env := SystemEnvironment{
+		db: gormDB,
+	}
+
+	user.APIRouting(route, &env)
+	user.StaticRouting(route)
+
 	oauth.Routing(route, gormDB)
 
 	_ = route.Run(config.Port)

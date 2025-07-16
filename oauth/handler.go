@@ -328,7 +328,7 @@ func appErrWrap(err error) error {
 	case errors.Is(err, token.ErrUnauthorized):
 		return protocol.Wrap(err, protocol.ErrCodeUnauthorized, "cannot access to token")
 	default:
-		log.Sugared().Errorf("error occurred in oauth handler %v", err)
-		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server error")
+		log.Sugared().Errorf("codes occurred in oauth handler %v", err)
+		return protocol.Wrap(err, protocol.ErrCodeUnknown, "internal server codes")
 	}
 }

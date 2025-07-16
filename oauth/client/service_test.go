@@ -45,7 +45,7 @@ func TestClientService_Auth(t *testing.T) {
 			if id == "clientId" {
 				return nil, ErrNotFound
 			}
-			return nil, errors.New("undefined error")
+			return nil, errors.New("undefined codes")
 		}
 
 		_, err := srv.Auth("clientId", "secret")
@@ -60,7 +60,7 @@ func TestClientService_Auth(t *testing.T) {
 			if id == "clientId" {
 				return mockClient, nil
 			}
-			return nil, errors.New("undefined error")
+			return nil, errors.New("undefined codes")
 		}
 		h.compare = func(hashed, cmp string) (bool, error) {
 			return false, nil
@@ -81,7 +81,7 @@ func TestClientService_Auth(t *testing.T) {
 			if id == "clientId" {
 				return mockClient, nil
 			}
-			return nil, errors.New("undefined error")
+			return nil, errors.New("undefined codes")
 		}
 		h.compare = func(hashed, cmp string) (bool, error) {
 			return hashed == cmp, nil

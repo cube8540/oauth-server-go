@@ -92,7 +92,7 @@ func httpStatus(c ErrCode) int {
 func parse(e error) ErrorResponse {
 	m := ErrorResponse{
 		ErrCode: ErrCodeUnknown,
-		Message: "Unknown error occurred",
+		Message: "Unknown codes occurred",
 	}
 	var appError *Error
 	if errors.As(e, &appError) {

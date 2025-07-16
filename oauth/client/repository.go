@@ -21,7 +21,7 @@ func (r *Repository) FindByClientID(id string) (*Client, error) {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			return nil, fmt.Errorf("%w: client(%s)", ErrNotFound, id)
 		default:
-			return nil, fmt.Errorf("error occurred during select client(%s): %w", id, err)
+			return nil, fmt.Errorf("codes occurred during select client(%s): %w", id, err)
 		}
 	}
 	return &c, nil

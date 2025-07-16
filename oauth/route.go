@@ -4,13 +4,15 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"oauth-server-go/internal/user/codes"
+	"oauth-server-go/internal/user/repository"
+	"oauth-server-go/internal/user/service"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
 	"oauth-server-go/protocol"
 	"oauth-server-go/security"
-	"oauth-server-go/user"
 )
 
 type (
@@ -54,17 +56,17 @@ func (f *tokenIssueFlow) generate(c *client.Client, r *pkg.TokenRequest) (*token
 }
 
 func adaptAuthentication(db *gorm.DB) token.ResourceOwnerAuthentication {
-	accountRepository := user.NewRepository(db)
-	authService := user.NewService(accountRepository)
+	accountRepository := repository.NewGorm(db)
+	authService := service.NewAuthenticationService(accountRepository)
 
 	return func(u, p string) (bool, error) {
-		_, err := authService.Login(&user.Login{
+		_, err := authService.Auth(&service.AuthenticationRequest{
 			Username: u,
 			Password: p,
 		})
-		if errors.Is(err, user.ErrAccountNotFound) ||
-			errors.Is(err, user.ErrPasswordNotMatch) ||
-			errors.Is(err, user.ErrAccountLocked) {
+		if errors.Is(err, codes.ErrAccountNotFound) ||
+			errors.Is(err, codes.ErrPasswordNotMatched) ||
+			errors.Is(err, codes.ErrAccountLocked) {
 			return false, NewErr(pkg.ErrAccessDenied, "failed resource owner credentials")
 		}
 		if err != nil {
@@ -107,7 +109,7 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 	group.Use(ErrorWrappingMiddleware())
 
 	authorize := group.Group("/authorize")
-	authorize.Use(security.Protected(security.AccessDeniedRedirect("/auth/login")))
+	authorize.Use(security.Protected(security.AccessDeniedRedirect("/users/auth")))
 	authorize.GET("", protocol.NewHTTPHandler(h.authorize))
 	authorize.POST("", protocol.NewHTTPHandler(h.approval))
 
@@ -123,7 +125,7 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 	}
 
 	manageGroup := route.Group("/oauth/manage")
-	manageGroup.Use(security.Protected(security.AccessDeniedRedirect("/auth/login")))
+	manageGroup.Use(security.Protected(security.AccessDeniedRedirect("/users/auth")))
 	manageGroup.GET("/tokens", protocol.NewHTTPHandler(m.tokenManagement))
 	manageGroup.DELETE("/tokens/:tokenValue", protocol.NewHTTPHandler(m.deleteToken))
 }

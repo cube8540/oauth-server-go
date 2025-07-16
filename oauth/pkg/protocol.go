@@ -98,7 +98,7 @@ const (
 //
 // [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-5.2
 type ErrResponse struct {
-	Code    string `json:"error"`
+	Code    string `json:"codes"`
 	Message string `json:"error_description"`
 	State   string `json:"state,omitempty"`
 	Uri     string `json:"error_uri,omitempty"`
@@ -108,7 +108,7 @@ type ErrResponse struct {
 func (e ErrResponse) QueryParam(u *url.URL) *url.URL {
 	newUrl, _ := url.Parse(u.String())
 	q := newUrl.Query()
-	q.Set("error", e.Code)
+	q.Set("codes", e.Code)
 	q.Set("error_description", e.Message)
 	if e.State != "" {
 		q.Set("state", e.State)

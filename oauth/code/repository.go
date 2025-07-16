@@ -25,7 +25,7 @@ func (r *Repository) FindByCode(code string) (*AuthorizationCode, error) {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			return nil, fmt.Errorf("%w: authroization code(%s)", ErrNotFound, code)
 		default:
-			return nil, fmt.Errorf("error occurred duraing select authorization code (%s): %w", code, err)
+			return nil, fmt.Errorf("codes occurred duraing select authorization code (%s): %w", code, err)
 		}
 	}
 	return &e, nil

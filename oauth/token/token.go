@@ -117,7 +117,7 @@ type RefreshToken struct {
 
 // BeforeCreate INSERT 전 토큰의 아이디를 설정한다. 이 설정으로 아래와 같이 Token 을 Omit으로 처리 할 수 있다.
 //
-//	err := db.Omit("Token").Create(refresh).Error
+//	codes := db.Omit("Token").Create(refresh).Error
 func (t *RefreshToken) BeforeCreate(tx *gorm.DB) error {
 	if t.Token != nil && t.TokenID == 0 {
 		t.TokenID = t.Token.ID

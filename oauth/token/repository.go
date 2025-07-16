@@ -35,7 +35,7 @@ func (r *Repository) FindAccessTokenByValue(v string) (*Token, error) {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			return nil, fmt.Errorf("%w: access token(%s)", ErrAccessTokenNotFound, v)
 		default:
-			return nil, fmt.Errorf("error occurred during select access token(%s): %w", v, err)
+			return nil, fmt.Errorf("codes occurred during select access token(%s): %w", v, err)
 		}
 	}
 	return &t, nil
@@ -48,7 +48,7 @@ func (r *Repository) FindRefreshTokenByValue(v string) (*RefreshToken, error) {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			return nil, fmt.Errorf("%w: refresh token(%s)", ErrRefreshTokenNotFound, v)
 		default:
-			return nil, fmt.Errorf("error occurred during select refresh token(%s): %w", v, err)
+			return nil, fmt.Errorf("codes occurred during select refresh token(%s): %w", v, err)
 		}
 	}
 	return &t, nil
@@ -93,7 +93,7 @@ func (r *Repository) FindRefreshTokenByTokenID(id uint) (*RefreshToken, error) {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			return nil, fmt.Errorf("%w: refresh token(%d)", ErrRefreshTokenNotFound, id)
 		default:
-			return nil, fmt.Errorf("error occrred during select refresh token(%d): %w", id, err)
+			return nil, fmt.Errorf("codes occrred during select refresh token(%d): %w", id, err)
 		}
 	}
 	return rt, nil

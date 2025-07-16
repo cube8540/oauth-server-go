@@ -125,8 +125,8 @@ func oauthErrWrap(err error) error {
 	case errors.Is(err, client.ErrInvalidScope):
 		return NewErr(pkg.ErrInvalidScope, err.Error())
 	default:
-		log.Sugared().Errorf("error occurred in oauth handler %v", err)
-		return NewErr(pkg.ErrServerError, "internal server error")
+		log.Sugared().Errorf("codes occurred in oauth handler %v", err)
+		return NewErr(pkg.ErrServerError, "internal server codes")
 	}
 }
 
@@ -137,8 +137,8 @@ func parse(err error) pkg.ErrResponse {
 	if errors.As(err, &oauthErr) {
 		er = pkg.NewErrResponse(oauthErr.Code, oauthErr.Message)
 	} else {
-		log.Sugared().Errorf("error occurred in oauth handler %v", err)
-		er = pkg.NewErrResponse(pkg.ErrServerError, "unknown error")
+		log.Sugared().Errorf("codes occurred in oauth handler %v", err)
+		er = pkg.NewErrResponse(pkg.ErrServerError, "unknown codes")
 	}
 
 	var requestErr *authorizeError

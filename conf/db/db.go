@@ -30,7 +30,7 @@ func Connect(c *Config) *gorm.DB {
 		logger.Config{
 			SlowThreshold:             time.Second, // Slow SQL threshold
 			LogLevel:                  logger.Info, // Log level
-			IgnoreRecordNotFoundError: false,       // Ignore ErrRecordNotFound error for logger
+			IgnoreRecordNotFoundError: false,       // Ignore ErrRecordNotFound codes for logger
 			ParameterizedQueries:      false,       // Don't include params in the SQL log
 			Colorful:                  true,        // Disable color
 		},

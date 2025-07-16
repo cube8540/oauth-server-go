@@ -1,8 +1,6 @@
-package user
+package model
 
-import (
-	"database/sql"
-)
+import "database/sql"
 
 // VerificationToken 인증토큰
 // 토큰과 만료일을 가지고 있으며, 계정을 활성화하는 등 계정 인증에서 사용한다.
