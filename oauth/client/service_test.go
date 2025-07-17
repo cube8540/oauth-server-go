@@ -2,7 +2,7 @@ package client
 
 import (
 	"errors"
-	"oauth-server-go/oauth/pkg"
+	"oauth-server-go/internal/pkg/oauth"
 	"testing"
 )
 
@@ -55,7 +55,7 @@ func TestClientService_Auth(t *testing.T) {
 	})
 
 	t.Run("공개 클라이언트인 경우", func(t *testing.T) {
-		mockClient := &Client{Type: pkg.ClientTypePublic}
+		mockClient := &Client{Type: oauth.ClientTypePublic}
 		r.findByClientID = func(id string) (*Client, error) {
 			if id == "clientId" {
 				return mockClient, nil
@@ -74,7 +74,7 @@ func TestClientService_Auth(t *testing.T) {
 
 	t.Run("기밀 클라이언트인 경우", func(t *testing.T) {
 		mockClient := &Client{
-			Type:   pkg.ClientTypeConfidential,
+			Type:   oauth.ClientTypeConfidential,
 			Secret: "Secret",
 		}
 		r.findByClientID = func(id string) (*Client, error) {

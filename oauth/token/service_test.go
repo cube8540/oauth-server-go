@@ -2,9 +2,9 @@ package token
 
 import (
 	"github.com/stretchr/testify/assert"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
-	"oauth-server-go/oauth/pkg"
 	"testing"
 	"time"
 )
@@ -98,7 +98,7 @@ type tokenGrantTestCase struct {
 	store       *mockStore
 	idGenerator IDGenerator
 	client      *client.Client
-	request     *pkg.TokenRequest
+	request     *oauth.TokenRequest
 	expect      tokenGrantExpected
 }
 
@@ -117,7 +117,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 			tokenGrantTestCase: tokenGrantTestCase{
 				name:  "요청에 인가 코드가 없을 경우 ErrInvalidRequest 발생",
 				store: &mockStore{},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code: "",
 				},
 				expect: tokenGrantExpected{
@@ -132,7 +132,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				client: &client.Client{
 					ID: testClientID,
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code: testAuthCodeValue,
 				},
 				expect: tokenGrantExpected{
@@ -150,7 +150,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				client: &client.Client{
 					ID: testClientID,
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code: testAuthCodeValue,
 				},
 				expect: tokenGrantExpected{
@@ -168,7 +168,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				client: &client.Client{
 					ID: testClientID,
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code: testAuthCodeValue,
 				},
 				expect: tokenGrantExpected{
@@ -187,7 +187,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				client: &client.Client{
 					ID: testClientID,
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code:         testAuthCodeValue,
 					CodeVerifier: "wrong verifier",
 				},
@@ -199,7 +199,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
 				CodeChallenge:       testCodeChallenge,
-				CodeChallengeMethod: pkg.ChallengePlan, // PLAN 방식을 사용
+				CodeChallengeMethod: oauth.ChallengePlan, // PLAN 방식을 사용
 			}),
 		},
 		{
@@ -210,7 +210,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 					ID:        testClientID,
 					Redirects: []string{testRedirectURI},
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code:         testAuthCodeValue,
 					CodeVerifier: testCodeChallenge,
 					Redirect:     "http://wrong-redirect-url.com",
@@ -223,7 +223,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
 				CodeChallenge:       testCodeChallenge,
-				CodeChallengeMethod: pkg.ChallengePlan,
+				CodeChallengeMethod: oauth.ChallengePlan,
 				Redirect:            testRedirectURI,
 			}),
 		},
@@ -234,10 +234,10 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				idGenerator: fixedTokenIDGenerator(testTokenValue),
 				client: &client.Client{
 					ID:        testClientID,
-					Type:      pkg.ClientTypePublic,
+					Type:      oauth.ClientTypePublic,
 					Redirects: []string{testRedirectURI},
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code:         testAuthCodeValue,
 					CodeVerifier: testCodeChallenge,
 					Redirect:     testRedirectURI,
@@ -256,7 +256,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
 				CodeChallenge:       testCodeChallenge,
-				CodeChallengeMethod: pkg.ChallengePlan,
+				CodeChallengeMethod: oauth.ChallengePlan,
 				Redirect:            testRedirectURI,
 				Username:            testUsername,
 				Scopes:              client.ScopeList(testScopeArray...),
@@ -269,10 +269,10 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				idGenerator: fixedTokenIDGenerator(testTokenValue),
 				client: &client.Client{
 					ID:        testClientID,
-					Type:      pkg.ClientTypeConfidential,
+					Type:      oauth.ClientTypeConfidential,
 					Redirects: []string{testRedirectURI},
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Code:         testAuthCodeValue,
 					CodeVerifier: testCodeChallenge,
 					Redirect:     testRedirectURI,
@@ -299,7 +299,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				ClientID:            testClientID,
 				ExpiredAt:           time.Now().Add(1 * time.Second),
 				CodeChallenge:       testCodeChallenge,
-				CodeChallengeMethod: pkg.ChallengePlan,
+				CodeChallengeMethod: oauth.ChallengePlan,
 				Redirect:            testRedirectURI,
 				Username:            testUsername,
 				Scopes:              client.ScopeList(testScopeArray...),
@@ -324,7 +324,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 
 type implicitFlowTestCase struct {
 	tokenGrantTestCase
-	authorizationRequest *pkg.AuthorizationRequest
+	authorizationRequest *oauth.AuthorizationRequest
 }
 
 func TestImplicitFlow_Generate(t *testing.T) {
@@ -337,7 +337,7 @@ func TestImplicitFlow_Generate(t *testing.T) {
 					err: ErrInvalidRequest,
 				},
 			},
-			authorizationRequest: &pkg.AuthorizationRequest{
+			authorizationRequest: &oauth.AuthorizationRequest{
 				State: "",
 			},
 		},
@@ -360,7 +360,7 @@ func TestImplicitFlow_Generate(t *testing.T) {
 					savedRefreshToken: nil,
 				},
 			},
-			authorizationRequest: &pkg.AuthorizationRequest{
+			authorizationRequest: &oauth.AuthorizationRequest{
 				State:    "ABCD",
 				Username: testUsername,
 				Scopes:   "scope_1 scope_2",
@@ -402,7 +402,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 			tokenGrantTestCase: tokenGrantTestCase{
 				name:  "유저 아이디 미입력시 ErrInvalidRequest 발생",
 				store: &mockStore{},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Username: "",
 				},
 				expect: tokenGrantExpected{
@@ -414,7 +414,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 			tokenGrantTestCase: tokenGrantTestCase{
 				name:  "유저 패스워드 미입력시 ErrInvalidRequest 발생",
 				store: &mockStore{},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Username: testUsername,
 					Password: "",
 				},
@@ -427,7 +427,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 			tokenGrantTestCase: tokenGrantTestCase{
 				name:  "회원 인증에 실패시 ErrUnauthorized 발생",
 				store: &mockStore{},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Username: testUsername,
 					Password: testPassword,
 				},
@@ -444,10 +444,10 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 				idGenerator: fixedTokenIDGenerator(testTokenValue),
 				client: &client.Client{
 					ID:     testClientID,
-					Type:   pkg.ClientTypePublic,
+					Type:   oauth.ClientTypePublic,
 					Scopes: client.ScopeList("scope_1", "scope_2", "scope_3"),
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Username: testUsername,
 					Password: testPassword,
 					Scope:    "scope_1 scope_2",
@@ -471,10 +471,10 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 				idGenerator: fixedTokenIDGenerator(testTokenValue),
 				client: &client.Client{
 					ID:     testClientID,
-					Type:   pkg.ClientTypeConfidential,
+					Type:   oauth.ClientTypeConfidential,
 					Scopes: client.ScopeList("scope_1", "scope_2", "scope_3"),
 				},
-				request: &pkg.TokenRequest{
+				request: &oauth.TokenRequest{
 					Username: testUsername,
 					Password: testPassword,
 					Scope:    "scope_1 scope_2",
@@ -521,7 +521,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 		{
 			name:  "리플레시 토큰이 입력 되지 않았을 경우 ErrInvalidRequest 발생",
 			store: &mockStore{},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				RefreshToken: "",
 			},
 			expect: tokenGrantExpected{
@@ -538,7 +538,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 					return nil, nil
 				},
 			},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
 			},
 			expect: tokenGrantExpected{
@@ -564,7 +564,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 			client: &client.Client{
 				ID: 2,
 			},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
 			},
 			expect: tokenGrantExpected{
@@ -593,7 +593,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 			client: &client.Client{
 				ID: testClientID,
 			},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
 			},
 			expect: tokenGrantExpected{
@@ -628,7 +628,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 				ID:     testClientID,
 				Scopes: client.ScopeList(testScopeArray...),
 			},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
 				Scope:        "",
 			},
@@ -684,7 +684,7 @@ func TestRefreshFlow_Generate(t *testing.T) {
 				ID:     testClientID,
 				Scopes: client.ScopeList(testScopeArray...),
 			},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				RefreshToken: testRefreshTokenValue,
 				Scope:        "scope_1 scope_2",
 			},
@@ -735,7 +735,7 @@ func TestClientCredentialsFlow_Generate(t *testing.T) {
 			name:  "클라이언트가 공개 클라이언트인 경우 ErrUnauthorized 발생",
 			store: &mockStore{},
 			client: &client.Client{
-				Type: pkg.ClientTypePublic,
+				Type: oauth.ClientTypePublic,
 			},
 			expect: tokenGrantExpected{
 				err: ErrUnauthorized,
@@ -747,10 +747,10 @@ func TestClientCredentialsFlow_Generate(t *testing.T) {
 			idGenerator: fixedTokenIDGenerator(testTokenValue),
 			client: &client.Client{
 				ID:     testClientID,
-				Type:   pkg.ClientTypeConfidential,
+				Type:   oauth.ClientTypeConfidential,
 				Scopes: client.ScopeList(testScopeArray...),
 			},
-			request: &pkg.TokenRequest{
+			request: &oauth.TokenRequest{
 				Scope: "scope_1 scope_2",
 			},
 			expect: tokenGrantExpected{

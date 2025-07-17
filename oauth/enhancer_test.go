@@ -3,9 +3,9 @@ package oauth
 import (
 	"github.com/stretchr/testify/assert"
 	"net/url"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/code"
-	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
 	"strconv"
 	"testing"
@@ -18,7 +18,7 @@ type enhancerExpect struct {
 
 type enhancerTestCase struct {
 	name     string
-	request  *pkg.AuthorizationRequest
+	request  *oauth.AuthorizationRequest
 	src      any
 	url      *url.URL
 	expected enhancerExpect
@@ -28,8 +28,8 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 	tests := []enhancerTestCase{
 		{
 			name: "response_type이 code가 아닌 경우 URL은 변경점이 없어야 한다.",
-			request: &pkg.AuthorizationRequest{
-				ResponseType: pkg.ResponseTypeToken,
+			request: &oauth.AuthorizationRequest{
+				ResponseType: oauth.ResponseTypeToken,
 			},
 			url: testutils.ParseURL(testLocalHost8080),
 			expected: enhancerExpect{
@@ -38,8 +38,8 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 		},
 		{
 			name: "src가 인가 코드가 아닌 경우 URL의 변경점이 없어야 한다.",
-			request: &pkg.AuthorizationRequest{
-				ResponseType: pkg.ResponseTypeCode,
+			request: &oauth.AuthorizationRequest{
+				ResponseType: oauth.ResponseTypeCode,
 			},
 			src: "wrong src",
 			url: testutils.ParseURL(testLocalHost8080),
@@ -49,8 +49,8 @@ func TestFlow_authorizationCodeFlow(t *testing.T) {
 		},
 		{
 			name: "인가 코드를 쿼리 파라미터로 붙여야 한다.",
-			request: &pkg.AuthorizationRequest{
-				ResponseType: pkg.ResponseTypeCode,
+			request: &oauth.AuthorizationRequest{
+				ResponseType: oauth.ResponseTypeCode,
 			},
 			src: &code.AuthorizationCode{
 				Value: testAuthorizationCode,
@@ -85,8 +85,8 @@ func TestFlow_implicitFlow(t *testing.T) {
 	tests := []enhancerTestCase{
 		{
 			name: "response_type이 token이 아닌 경우 URL의 변경점은 없어야 한다.",
-			request: &pkg.AuthorizationRequest{
-				ResponseType: pkg.ResponseTypeCode,
+			request: &oauth.AuthorizationRequest{
+				ResponseType: oauth.ResponseTypeCode,
 			},
 			expected: enhancerExpect{
 				query: nil,
@@ -94,8 +94,8 @@ func TestFlow_implicitFlow(t *testing.T) {
 		},
 		{
 			name: "src가 토큰이 아닌 경우 URL의 변경점은 없아야 한다.",
-			request: &pkg.AuthorizationRequest{
-				ResponseType: pkg.ResponseTypeToken,
+			request: &oauth.AuthorizationRequest{
+				ResponseType: oauth.ResponseTypeToken,
 			},
 			src: "wrong type",
 			expected: enhancerExpect{
@@ -104,8 +104,8 @@ func TestFlow_implicitFlow(t *testing.T) {
 		},
 		{
 			name: "토큰 정보를 플레그먼트로 URL에 추가한다.",
-			request: &pkg.AuthorizationRequest{
-				ResponseType: pkg.ResponseTypeToken,
+			request: &oauth.AuthorizationRequest{
+				ResponseType: oauth.ResponseTypeToken,
 				State:        testAuthorizationState,
 			},
 			src: &token.TestToken{
@@ -117,7 +117,7 @@ func TestFlow_implicitFlow(t *testing.T) {
 			expected: enhancerExpect{
 				query: map[string][]string{
 					"access_token": {testTokenValue},
-					"token_type":   {string(pkg.TokenTypeBearer)},
+					"token_type":   {string(oauth.TokenTypeBearer)},
 					"expires_in":   {strconv.FormatUint(testExpiresIn, 10)},
 					"scope":        {testScope},
 					"state":        {testAuthorizationState},

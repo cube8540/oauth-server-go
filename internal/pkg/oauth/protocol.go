@@ -1,8 +1,7 @@
-package pkg
+package oauth
 
 import (
 	"net/url"
-	"strings"
 )
 
 // [RFC 6749] 에서 정의하는 에러 코드 리스트
@@ -219,15 +218,3 @@ type (
 		JTI       string `json:"jti,omitempty"`
 	}
 )
-
-// SplitScope 현제 저장되어 있는 string 타입의 문자열을 공백(" ")으로 나누어 반환한다. [RFC 6749]
-//
-// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-3.3
-func SplitScope(src string) []string {
-	var s []string
-	if src == "" {
-		return s
-	}
-	s = strings.Split(src, " ")
-	return s
-}

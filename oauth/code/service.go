@@ -1,8 +1,9 @@
 package code
 
 import (
+	"oauth-server-go/internal/pkg/oauth"
+	"oauth-server-go/internal/pkg/oauth/scope"
 	"oauth-server-go/oauth/client"
-	"oauth-server-go/oauth/pkg"
 )
 
 var codeGenerator AuthCodeGenerator
@@ -27,8 +28,8 @@ func NewService(r Store) *Service {
 	}
 }
 
-func (s *Service) New(c *client.Client, r *pkg.AuthorizationRequest) (*AuthorizationCode, error) {
-	scopes, err := c.Scopes.GetAll(pkg.SplitScope(r.Scopes))
+func (s *Service) New(c *client.Client, r *oauth.AuthorizationRequest) (*AuthorizationCode, error) {
+	scopes, err := c.Scopes.GetAll(scope.Split(r.Scopes))
 	if err != nil {
 		return nil, err
 	}

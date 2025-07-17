@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"oauth-server-go/oauth/pkg"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/pkg/hash"
 )
 
@@ -32,7 +32,7 @@ func (s *Service) Auth(id, secret string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if c.Type == pkg.ClientTypePublic {
+	if c.Type == oauth.ClientTypePublic {
 		return c, nil
 	}
 	eq, err := hash.Compare(c.Secret, secret)

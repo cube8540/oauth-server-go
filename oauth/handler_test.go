@@ -5,10 +5,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/stretchr/testify/assert"
 	"net/url"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/client"
-	"oauth-server-go/oauth/pkg"
 	"testing"
 )
 
@@ -25,7 +25,7 @@ type requestTestCase struct {
 	name            string
 	query, form     url.Values
 	clientRetriever func(id string) (*client.Client, error)
-	requestConsumer func(c *client.Client, r *pkg.AuthorizationRequest) (any, error)
+	requestConsumer func(c *client.Client, r *oauth.AuthorizationRequest) (any, error)
 }
 
 type errorExpected struct {
@@ -35,7 +35,7 @@ type errorExpected struct {
 
 type handlerAuthorizeExpect struct {
 	errorExpected
-	savedRequestIntoSession *pkg.AuthorizationRequest
+	savedRequestIntoSession *oauth.AuthorizationRequest
 }
 
 type handlerAuthorizeTestCase struct {
@@ -56,7 +56,7 @@ func TestHandler_authorize(t *testing.T) {
 			expected: handlerAuthorizeExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: pkg.ErrInvalidRequest,
+						Code: oauth.ErrInvalidRequest,
 					},
 				},
 			},
@@ -74,7 +74,7 @@ func TestHandler_authorize(t *testing.T) {
 			expected: handlerAuthorizeExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: pkg.ErrInvalidRequest,
+						Code: oauth.ErrInvalidRequest,
 					},
 					routeError: &routeErr{
 						to: testutils.ParseURL(testLocalHost8080),
@@ -95,7 +95,7 @@ func TestHandler_authorize(t *testing.T) {
 			expected: handlerAuthorizeExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: pkg.ErrUnsupportedResponseType,
+						Code: oauth.ErrUnsupportedResponseType,
 					},
 					routeError: &routeErr{
 						to: testutils.ParseURL(testLocalHost8080),
@@ -108,7 +108,7 @@ func TestHandler_authorize(t *testing.T) {
 				name: "세션에 요청 정보를 저장",
 				query: map[string][]string{
 					"client_id":     {testClientIDValue},
-					"response_type": {string(pkg.ResponseTypeCode)},
+					"response_type": {string(oauth.ResponseTypeCode)},
 					"redirect_uri":  {testLocalHost8080},
 					"scope":         {"scope_1 scope_2"},
 				},
@@ -116,9 +116,9 @@ func TestHandler_authorize(t *testing.T) {
 			},
 			session: testutils.NewSessions(testSessionID),
 			expected: handlerAuthorizeExpect{
-				savedRequestIntoSession: &pkg.AuthorizationRequest{
+				savedRequestIntoSession: &oauth.AuthorizationRequest{
 					ClientID:     testClientIDValue,
-					ResponseType: pkg.ResponseTypeCode,
+					ResponseType: oauth.ResponseTypeCode,
 					Redirect:     testLocalHost8080,
 					Scopes:       "scope_1 scope_2",
 				},
@@ -143,7 +143,7 @@ func TestHandler_authorize(t *testing.T) {
 			if tc.expected.savedRequestIntoSession != nil {
 				serial := sessions.Default(c).Get(sessionKeyOriginAuthRequest)
 
-				var savedAuthorizationRequest pkg.AuthorizationRequest
+				var savedAuthorizationRequest oauth.AuthorizationRequest
 				_ = json.Unmarshal(serial.([]byte), &savedAuthorizationRequest)
 
 				assert.Equal(t, *tc.expected.savedRequestIntoSession, savedAuthorizationRequest)
@@ -155,7 +155,7 @@ func TestHandler_authorize(t *testing.T) {
 type handlerApprovalExpect struct {
 	errorExpected
 	consumedClient      *client.Client
-	consumedRequest     *pkg.AuthorizationRequest
+	consumedRequest     *oauth.AuthorizationRequest
 	checkSessionDeleted bool
 	deletedSession      bool
 }
@@ -181,7 +181,7 @@ func TestHandler_approval(t *testing.T) {
 			expected: handlerApprovalExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: pkg.ErrInvalidRequest,
+						Code: oauth.ErrInvalidRequest,
 					},
 				},
 			},
@@ -195,9 +195,9 @@ func TestHandler_approval(t *testing.T) {
 				},
 			},
 			setupSession: func() sessions.Session {
-				origin := &pkg.AuthorizationRequest{
+				origin := &oauth.AuthorizationRequest{
 					ClientID:     testClientIDValue,
-					ResponseType: pkg.ResponseTypeCode,
+					ResponseType: oauth.ResponseTypeCode,
 					Redirect:     testLocalHost8080,
 					Scopes:       "scope_1 scope_2 scope_3",
 				}
@@ -212,7 +212,7 @@ func TestHandler_approval(t *testing.T) {
 			expected: handlerApprovalExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: pkg.ErrInvalidScope,
+						Code: oauth.ErrInvalidScope,
 					},
 					routeError: &routeErr{
 						to: testutils.ParseURL(testLocalHost8080),
@@ -224,7 +224,7 @@ func TestHandler_approval(t *testing.T) {
 			requestTestCase: requestTestCase{
 				name:            "로그인된 사용자와 승인된 스코프로 토큰 발행을 해야함",
 				clientRetriever: fixedClientRetriever(testClientIDValue, testClient),
-				requestConsumer: func(c *client.Client, r *pkg.AuthorizationRequest) (any, error) {
+				requestConsumer: func(c *client.Client, r *oauth.AuthorizationRequest) (any, error) {
 					return nil, nil
 				},
 				form: map[string][]string{
@@ -232,9 +232,9 @@ func TestHandler_approval(t *testing.T) {
 				},
 			},
 			setupSession: func() sessions.Session {
-				origin := &pkg.AuthorizationRequest{
+				origin := &oauth.AuthorizationRequest{
 					ClientID:     testClientIDValue,
-					ResponseType: pkg.ResponseTypeCode,
+					ResponseType: oauth.ResponseTypeCode,
 					Redirect:     testLocalHost8080,
 					Scopes:       "scope_1 scope_2 scope_3",
 				}
@@ -247,9 +247,9 @@ func TestHandler_approval(t *testing.T) {
 				return &web.Authentication{Username: testUsername}
 			},
 			expected: handlerApprovalExpect{
-				consumedRequest: &pkg.AuthorizationRequest{
+				consumedRequest: &oauth.AuthorizationRequest{
 					ClientID:     testClientIDValue,
-					ResponseType: pkg.ResponseTypeCode,
+					ResponseType: oauth.ResponseTypeCode,
 					Redirect:     testLocalHost8080,
 					Scopes:       "scope_1 scope_2",
 					Username:     testUsername,
@@ -261,7 +261,7 @@ func TestHandler_approval(t *testing.T) {
 			requestTestCase: requestTestCase{
 				name:            "요청 종료 시 세션에 저장된 요청 정보를 삭제 한다",
 				clientRetriever: fixedClientRetriever(testClientIDValue, testClient),
-				requestConsumer: func(c *client.Client, r *pkg.AuthorizationRequest) (any, error) {
+				requestConsumer: func(c *client.Client, r *oauth.AuthorizationRequest) (any, error) {
 					return nil, nil
 				},
 				form: map[string][]string{
@@ -269,9 +269,9 @@ func TestHandler_approval(t *testing.T) {
 				},
 			},
 			setupSession: func() sessions.Session {
-				origin := &pkg.AuthorizationRequest{
+				origin := &oauth.AuthorizationRequest{
 					ClientID:     testClientIDValue,
-					ResponseType: pkg.ResponseTypeCode,
+					ResponseType: oauth.ResponseTypeCode,
 					Redirect:     testLocalHost8080,
 					Scopes:       "scope_1 scope_2 scope_3",
 				}
@@ -293,10 +293,10 @@ func TestHandler_approval(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var consumedClient *client.Client
-			var consumedRequest *pkg.AuthorizationRequest
+			var consumedRequest *oauth.AuthorizationRequest
 			handler := h{
 				clientRetriever: tc.clientRetriever,
-				requestConsumer: func(c *client.Client, request *pkg.AuthorizationRequest) (any, error) {
+				requestConsumer: func(c *client.Client, request *oauth.AuthorizationRequest) (any, error) {
 					consumedClient = c
 					consumedRequest = request
 					return tc.requestConsumer(c, request)

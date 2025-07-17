@@ -5,8 +5,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/google/uuid"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/oauth/client"
-	"oauth-server-go/oauth/pkg"
 	"time"
 )
 
@@ -27,8 +27,8 @@ type AuthorizationCode struct {
 	State               string
 	Redirect            string
 	Scopes              []client.Scope `gorm:"many2many:users.oauth2_code_scope;joinForeignKey:code_id;joinReferences:scope_id"`
-	CodeChallenge       pkg.Challenge
-	CodeChallengeMethod pkg.ChallengeMethod
+	CodeChallenge       oauth.Challenge
+	CodeChallengeMethod oauth.ChallengeMethod
 	IssuedAt, ExpiredAt time.Time
 }
 
@@ -42,7 +42,7 @@ func NewAuthCode(g AuthCodeGenerator) *AuthorizationCode {
 	return code
 }
 
-func (c *AuthorizationCode) Set(r *pkg.AuthorizationRequest) error {
+func (c *AuthorizationCode) Set(r *oauth.AuthorizationRequest) error {
 	if r.Username == "" {
 		return fmt.Errorf("%w: username", ErrParameterMissing)
 	}
@@ -52,17 +52,17 @@ func (c *AuthorizationCode) Set(r *pkg.AuthorizationRequest) error {
 	c.CodeChallenge = r.CodeChallenge
 	c.CodeChallengeMethod = r.CodeChallengeMethod
 	if c.CodeChallenge != "" && c.CodeChallengeMethod == "" {
-		c.CodeChallengeMethod = pkg.ChallengePlan
+		c.CodeChallengeMethod = oauth.ChallengePlan
 	} else if c.CodeChallenge == "" && c.CodeChallengeMethod != "" {
 		return fmt.Errorf("%w: code challenge", ErrParameterMissing)
 	}
 	return nil
 }
 
-func (c *AuthorizationCode) Verifier(v pkg.Verifier) (bool, error) {
+func (c *AuthorizationCode) Verifier(v oauth.Verifier) (bool, error) {
 	if c.CodeChallenge != "" {
 		switch c.CodeChallengeMethod {
-		case pkg.ChallengeS256:
+		case oauth.ChallengeS256:
 			hash := sha256.New()
 			_, err := hash.Write([]byte(v))
 			if err != nil {
@@ -70,7 +70,7 @@ func (c *AuthorizationCode) Verifier(v pkg.Verifier) (bool, error) {
 			}
 			encoded := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 			return string(c.CodeChallenge) == encoded, nil
-		case pkg.ChallengePlan:
+		case oauth.ChallengePlan:
 			return string(c.CodeChallenge) == string(v), nil
 		default:
 			return false, nil

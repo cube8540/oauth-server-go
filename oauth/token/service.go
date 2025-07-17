@@ -3,10 +3,11 @@ package token
 import (
 	"errors"
 	"fmt"
+	"oauth-server-go/internal/pkg/oauth"
+	"oauth-server-go/internal/pkg/oauth/scope"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
-	"oauth-server-go/oauth/pkg"
 	"time"
 )
 
@@ -57,7 +58,7 @@ func NewAuthorizationCodeFlow(tr Store, consume AuthCodeConsume) *AuthorizationC
 // PKCE(Proof Key for Code Exchange) 메커니즘을 지원한다. [RFC 7636] 참조
 //
 // [RFC 7636]: https://datatracker.ietf.org/doc/html/rfc7636
-func (s *AuthorizationCodeFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *RefreshToken, error) {
+func (s *AuthorizationCodeFlow) Generate(c *client.Client, r *oauth.TokenRequest) (*Token, *RefreshToken, error) {
 	if r.Code == "" {
 		return nil, nil, fmt.Errorf("%w: authorization code is required", ErrInvalidRequest)
 	}
@@ -92,7 +93,7 @@ func (s *AuthorizationCodeFlow) Generate(c *client.Client, r *pkg.TokenRequest) 
 	var refresh *RefreshToken
 	// 액세스 토큰 저장 및 리프레시 토큰 생성 (기밀 클라이언트만 리프레시 토큰 발급)
 	err = s.store.Save(accessToken, func(t *Token) *RefreshToken {
-		if c.Type == pkg.ClientTypeConfidential {
+		if c.Type == oauth.ClientTypeConfidential {
 			refresh = NewRefreshToken(t, s.IDGenerator)
 		}
 		return refresh
@@ -122,12 +123,12 @@ func NewImplicitFlow(r Store) *ImplicitFlow {
 
 // Generate 인가 요청을 통해 액세스 토큰을 생성한다.
 // 암묵적 흐름은 리프레시 토큰을 발급하지 않는다.
-func (f *ImplicitFlow) Generate(c *client.Client, r *pkg.AuthorizationRequest) (*Token, error) {
+func (f *ImplicitFlow) Generate(c *client.Client, r *oauth.AuthorizationRequest) (*Token, error) {
 	// CSRF 방지를 위한 state 파라미터 필수 검증
 	if r.State == "" {
 		return nil, fmt.Errorf("%w: implicit flow is required state parameter", ErrInvalidRequest)
 	}
-	scopes, err := c.Scopes.GetAll(pkg.SplitScope(r.Scopes))
+	scopes, err := c.Scopes.GetAll(scope.Split(r.Scopes))
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +163,7 @@ func NewResourceOwnerPasswordCredentialsFlow(auth ResourceOwnerAuthentication, r
 }
 
 // Generate 사용자 자격 증명을 통해 액세스 토큰과 리프레시 토큰을 생성한다.
-func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *RefreshToken, error) {
+func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *client.Client, r *oauth.TokenRequest) (*Token, *RefreshToken, error) {
 	if r.Username == "" || r.Password == "" {
 		return nil, nil, fmt.Errorf("%w: username/password is required", ErrInvalidRequest)
 	}
@@ -173,7 +174,7 @@ func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *client.Client, r *pkg
 	if !auth {
 		return nil, nil, fmt.Errorf("%w: resource owner authentication is failed", ErrUnauthorized)
 	}
-	scopes, err := c.Scopes.GetAll(pkg.SplitScope(r.Scope))
+	scopes, err := c.Scopes.GetAll(scope.Split(r.Scope))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -183,7 +184,7 @@ func (f *ResourceOwnerPasswordCredentialsFlow) Generate(c *client.Client, r *pkg
 	var refresh *RefreshToken
 	// 액세스 토큰 저장 및 리프레시 토큰 생성 (기밀 클라이언트만 리프레시 토큰 발급)
 	err = f.store.Save(accessToken, func(t *Token) *RefreshToken {
-		if c.Type == pkg.ClientTypeConfidential {
+		if c.Type == oauth.ClientTypeConfidential {
 			refresh = NewRefreshToken(t, f.IDGenerator)
 		}
 		return refresh
@@ -210,7 +211,7 @@ func NewRefreshFlow(r Store) *RefreshFlow {
 }
 
 // Generate 리프레시 토큰을 통해 새로운 액세스 토큰과 리프레시 토큰을 생성한다.
-func (f *RefreshFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *RefreshToken, error) {
+func (f *RefreshFlow) Generate(c *client.Client, r *oauth.TokenRequest) (*Token, *RefreshToken, error) {
 	if r.RefreshToken == "" {
 		return nil, nil, fmt.Errorf("%w: refresh token is required", ErrInvalidRequest)
 	}
@@ -230,7 +231,7 @@ func (f *RefreshFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *
 	// 스코프 결정 (새 스코프가 요청되지 않은 경우 기존 스코프 유지)
 	var scopes client.GrantedScopes
 	if r.Scope != "" {
-		scopes, err = c.Scopes.GetAll(pkg.SplitScope(r.Scope))
+		scopes, err = c.Scopes.GetAll(scope.Split(r.Scope))
 	} else {
 		scopes = rt.Token.Scopes
 	}
@@ -270,12 +271,12 @@ func NewClientCredentialsFlow(r Store) *ClientCredentialsFlow {
 
 // Generate 클라이언트 자격 증명을 통해 액세스 토큰을 생성한다.
 // 클라이언트 자격 증명 흐름은 리프레시 토큰을 발급하지 않는다.
-func (f *ClientCredentialsFlow) Generate(c *client.Client, r *pkg.TokenRequest) (*Token, *RefreshToken, error) {
+func (f *ClientCredentialsFlow) Generate(c *client.Client, r *oauth.TokenRequest) (*Token, *RefreshToken, error) {
 	// 공개 클라이언트는 클라이언트 자격 증명 흐름 사용 불가
-	if c.Type == pkg.ClientTypePublic {
+	if c.Type == oauth.ClientTypePublic {
 		return nil, nil, fmt.Errorf("%w: public client cannot grant client credentials", ErrUnauthorized)
 	}
-	scopes, err := c.Scopes.GetAll(pkg.SplitScope(r.Scope))
+	scopes, err := c.Scopes.GetAll(scope.Split(r.Scope))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -338,13 +339,13 @@ func NewIntrospectionService(r Store) *IntrospectionService {
 // Introspection 토큰 검사를 수행한다. [RFC 7662] 참조
 //
 // [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662
-func (s *IntrospectionService) Introspection(c *client.Client, r *pkg.IntrospectionRequest) (*pkg.Introspection, error) {
+func (s *IntrospectionService) Introspection(c *client.Client, r *oauth.IntrospectionRequest) (*oauth.Introspection, error) {
 	var accessToken Inspector
 	var err error
 	switch r.TokenTypeHint {
-	case "", pkg.TokenHintAccessToken:
+	case "", oauth.TokenHintAccessToken:
 		accessToken, err = s.repository.FindAccessTokenByValue(r.Token)
-	case pkg.TokenHintRefreshToken:
+	case oauth.TokenHintRefreshToken:
 		accessToken, err = s.repository.FindRefreshTokenByValue(r.Token)
 	default:
 		return nil, fmt.Errorf("%w: token type hint must be empty or access_token, refresh_token", ErrInvalidRequest)
@@ -356,14 +357,14 @@ func (s *IntrospectionService) Introspection(c *client.Client, r *pkg.Introspect
 		return nil, fmt.Errorf("%w: client is different", ErrUnauthorized)
 	}
 	if !accessToken.IsActive() {
-		return &pkg.Introspection{Active: false}, nil
+		return &oauth.Introspection{Active: false}, nil
 	}
-	intro := &pkg.Introspection{
+	intro := &oauth.Introspection{
 		Active:    true,
 		Scope:     accessToken.GetScopes(),
 		ClientID:  accessToken.GetClientID(),
 		Username:  accessToken.GetUsername(),
-		TokenType: pkg.TokenTypeBearer,
+		TokenType: oauth.TokenTypeBearer,
 		ExpiresIn: accessToken.GetExpiredAt(),
 		IssuedAt:  accessToken.GetIssuedAt(),
 	}

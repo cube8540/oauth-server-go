@@ -8,9 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"oauth-server-go/internal/config/log"
+	"oauth-server-go/internal/pkg/oauth"
+	"oauth-server-go/internal/pkg/oauth/scope"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
-	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
 	"strings"
 )
@@ -33,7 +34,7 @@ type h struct {
 	// [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-4
 	// [4.1.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.2
 	// [4.2.2]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2.2
-	requestConsumer func(c *client.Client, request *pkg.AuthorizationRequest) (any, error)
+	requestConsumer func(c *client.Client, request *oauth.AuthorizationRequest) (any, error)
 
 	// tokenIssuer 요청에 따라 토큰을 발행한다.
 	// 각 요청에 따른 토큰 발행은 [RFC 6749] 문단의 [4.1.4], [4.3.3], [4.4.3] 을 참고 한다.
@@ -42,14 +43,14 @@ type h struct {
 	// [4.1.4]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1.4
 	// [4.3.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.3.3
 	// [4.4.3]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.4.3
-	tokenIssuer func(c *client.Client, r *pkg.TokenRequest) (*token.Token, *token.RefreshToken, error)
+	tokenIssuer func(c *client.Client, r *oauth.TokenRequest) (*token.Token, *token.RefreshToken, error)
 
 	// introspector 토큰의 상세 정보를 질의 한다. 요청과 응답 폼은 [RFC 7662] 의 [2.1], [2.2] 문단을 참고
 	//
 	// [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2
 	// [2.1]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.1
 	// [2.2]: https://datatracker.ietf.org/doc/html/rfc7662#section-2.2
-	introspector func(c *client.Client, r *pkg.IntrospectionRequest) (*pkg.Introspection, error)
+	introspector func(c *client.Client, r *oauth.IntrospectionRequest) (*oauth.Introspection, error)
 }
 
 // authorize OAuth2의 [Authorization Code Grant] 와 [Implicit Grant] 의 Authorization Request 구현 핸들러
@@ -71,12 +72,12 @@ type h struct {
 // [Authorization Code Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.1
 // [Implicit Grant]: https://datatracker.ietf.org/doc/html/rfc6749#section-4.2
 func (h h) authorize(ctx *gin.Context) error {
-	var r pkg.AuthorizationRequest
+	var r oauth.AuthorizationRequest
 	if err := ctx.ShouldBindQuery(&r); err != nil {
 		return err
 	}
 	if r.ClientID == "" {
-		return NewErr(pkg.ErrInvalidRequest, "client id is required")
+		return NewErr(oauth.ErrInvalidRequest, "client id is required")
 	}
 
 	c, err := h.clientRetriever(r.ClientID)
@@ -90,13 +91,13 @@ func (h h) authorize(ctx *gin.Context) error {
 	}
 	to, _ := url.Parse(redirect)
 	if r.ResponseType == "" {
-		return wrap(NewErr(pkg.ErrInvalidRequest, "require parameter is missing"), &r, to)
+		return wrap(NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), &r, to)
 	}
-	if r.ResponseType != pkg.ResponseTypeCode && r.ResponseType != pkg.ResponseTypeToken {
-		return wrap(NewErr(pkg.ErrUnsupportedResponseType, "unsupported"), &r, to)
+	if r.ResponseType != oauth.ResponseTypeCode && r.ResponseType != oauth.ResponseTypeToken {
+		return wrap(NewErr(oauth.ErrUnsupportedResponseType, "unsupported"), &r, to)
 	}
 
-	scopes, err := c.Scopes.GetAll(pkg.SplitScope(r.Scopes))
+	scopes, err := c.Scopes.GetAll(scope.Split(r.Scopes))
 	if err != nil {
 		return wrap(err, &r, to)
 	}
@@ -128,7 +129,7 @@ func (h h) approval(ctx *gin.Context) error {
 		return err
 	}
 	if origin == nil {
-		return NewErr(pkg.ErrInvalidRequest, "origin request is not found")
+		return NewErr(oauth.ErrInvalidRequest, "origin request is not found")
 	}
 	c, err := h.clientRetriever(origin.ClientID)
 	if err != nil {
@@ -144,7 +145,7 @@ func (h h) approval(ctx *gin.Context) error {
 
 	rs := ctx.PostFormArray("scope")
 	if len(rs) == 0 {
-		return wrap(NewErr(pkg.ErrInvalidScope, "resource owner denied access"), origin, to)
+		return wrap(NewErr(oauth.ErrInvalidScope, "resource owner denied access"), origin, to)
 	}
 	origin.Scopes = strings.Join(rs, " ")
 
@@ -179,7 +180,7 @@ func (h h) approval(ctx *gin.Context) error {
 //
 // [RFC 6749]: https://datatracker.ietf.org/doc/html/rfc6749#section-5
 func (h h) issueToken(ctx *gin.Context) error {
-	var r pkg.TokenRequest
+	var r oauth.TokenRequest
 	if err := ctx.Bind(&r); err != nil {
 		return err
 	}
@@ -189,15 +190,15 @@ func (h h) issueToken(ctx *gin.Context) error {
 		return err
 	}
 	if at == nil {
-		return NewErr(pkg.ErrServerError, "access token cannot issue")
+		return NewErr(oauth.ErrServerError, "access token cannot issue")
 	}
 	var scopes []string
 	for _, s := range at.Scopes {
 		scopes = append(scopes, s.Code)
 	}
-	res := pkg.TokenResponse{
+	res := oauth.TokenResponse{
 		Token:     at.Value,
-		Type:      pkg.TokenTypeBearer,
+		Type:      oauth.TokenTypeBearer,
 		ExpiresIn: at.GetExpiredAt(),
 		Scope:     at.GetScopes(),
 	}
@@ -223,12 +224,12 @@ func (h h) issueToken(ctx *gin.Context) error {
 //
 // [RFC 7662]: https://datatracker.ietf.org/doc/html/rfc7662#section-2
 func (h h) introspection(ctx *gin.Context) error {
-	var r pkg.IntrospectionRequest
+	var r oauth.IntrospectionRequest
 	if err := ctx.Bind(&r); err != nil {
 		return err
 	}
 	if r.Token == "" {
-		return NewErr(pkg.ErrInvalidRequest, "token is required")
+		return NewErr(oauth.ErrInvalidRequest, "token is required")
 	}
 	clientValue, _ := ctx.Get(oauth2ShareKeyAuthClient)
 	intro, err := h.introspector(clientValue.(*client.Client), &r)
@@ -288,7 +289,7 @@ func (m m) deleteToken(ctx *gin.Context) error {
 //
 //	s: 세션 객체
 //	r: 저장할 인가 요청 정보
-func storeOriginRequest(s sessions.Session, r *pkg.AuthorizationRequest) error {
+func storeOriginRequest(s sessions.Session, r *oauth.AuthorizationRequest) error {
 	serial, err := json.Marshal(&r)
 	if err != nil {
 		return err
@@ -300,10 +301,10 @@ func storeOriginRequest(s sessions.Session, r *pkg.AuthorizationRequest) error {
 // getOriginRequest 세션에서 인가 요청 정보를 가져온다.
 //
 //	s: 세션 객체
-func getOriginRequest(s sessions.Session) (*pkg.AuthorizationRequest, error) {
+func getOriginRequest(s sessions.Session) (*oauth.AuthorizationRequest, error) {
 	v := s.Get(sessionKeyOriginAuthRequest)
 	if rb, ok := v.([]byte); ok {
-		var r pkg.AuthorizationRequest
+		var r oauth.AuthorizationRequest
 		err := json.Unmarshal(rb, &r)
 		return &r, err
 	}

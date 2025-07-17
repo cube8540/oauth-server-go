@@ -4,13 +4,13 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user/codes"
 	"oauth-server-go/internal/user/repository"
 	"oauth-server-go/internal/user/service"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
-	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
 )
 
@@ -28,29 +28,29 @@ type (
 	}
 )
 
-func (f *authorizationRequestFlow) consume(c *client.Client, r *pkg.AuthorizationRequest) (any, error) {
+func (f *authorizationRequestFlow) consume(c *client.Client, r *oauth.AuthorizationRequest) (any, error) {
 	switch r.ResponseType {
-	case pkg.ResponseTypeCode:
+	case oauth.ResponseTypeCode:
 		return f.authCodeService.New(c, r)
-	case pkg.ResponseTypeToken:
+	case oauth.ResponseTypeToken:
 		return f.implicitFlow.Generate(c, r)
 	default:
-		return nil, NewErr(pkg.ErrUnsupportedResponseType, "unsupported")
+		return nil, NewErr(oauth.ErrUnsupportedResponseType, "unsupported")
 	}
 }
 
-func (f *tokenIssueFlow) generate(c *client.Client, r *pkg.TokenRequest) (*token.Token, *token.RefreshToken, error) {
+func (f *tokenIssueFlow) generate(c *client.Client, r *oauth.TokenRequest) (*token.Token, *token.RefreshToken, error) {
 	switch r.GrantType {
-	case pkg.GrantTypeAuthorizationCode:
+	case oauth.GrantTypeAuthorizationCode:
 		return f.authorizationCodeFlow.Generate(c, r)
-	case pkg.GrantTypePassword:
+	case oauth.GrantTypePassword:
 		return f.resourceOwnerFlow.Generate(c, r)
-	case pkg.GrantTypeRefreshToken:
+	case oauth.GrantTypeRefreshToken:
 		return f.refreshFlow.Generate(c, r)
-	case pkg.GrantTypeClientCredentials:
+	case oauth.GrantTypeClientCredentials:
 		return f.clientCredentialsFlow.Generate(c, r)
 	default:
-		return nil, nil, NewErr(pkg.ErrUnsupportedGrantType, "unsupported")
+		return nil, nil, NewErr(oauth.ErrUnsupportedGrantType, "unsupported")
 	}
 }
 
@@ -66,7 +66,7 @@ func adaptAuthentication(db *gorm.DB) token.ResourceOwnerAuthentication {
 		if errors.Is(err, codes.ErrAccountNotFound) ||
 			errors.Is(err, codes.ErrPasswordNotMatched) ||
 			errors.Is(err, codes.ErrAccountLocked) {
-			return false, NewErr(pkg.ErrAccessDenied, "failed resource owner credentials")
+			return false, NewErr(oauth.ErrAccessDenied, "failed resource owner credentials")
 		}
 		if err != nil {
 			return false, err
@@ -137,7 +137,7 @@ func newClientAuthRequiredMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, exists := c.Get(oauth2ShareKeyAuthClient)
 		if !exists {
-			_ = c.Error(NewErr(pkg.ErrUnauthorizedClient, "client auth is required"))
+			_ = c.Error(NewErr(oauth.ErrUnauthorizedClient, "client auth is required"))
 			c.Abort()
 		} else {
 			c.Next()

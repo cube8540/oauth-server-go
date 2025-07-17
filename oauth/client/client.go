@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"oauth-server-go/oauth/pkg"
+	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/pkg/sql"
 	"slices"
 	"time"
@@ -49,8 +49,8 @@ func (s GrantedScopes) GetAll(v []string) ([]Scope, error) {
 type Client struct {
 	ID           uint
 	ClientID     string
-	Name         string         `gorm:"column:client_name"`
-	Type         pkg.ClientType `gorm:"column:client_type"`
+	Name         string           `gorm:"column:client_name"`
+	Type         oauth.ClientType `gorm:"column:client_type"`
 	Secret       string
 	OwnerID      string
 	Redirects    sql.Strings   `gorm:"column:redirect_uris"`
