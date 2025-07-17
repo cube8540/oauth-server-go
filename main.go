@@ -4,10 +4,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"oauth-server-go/conf"
-	"oauth-server-go/conf/db"
-	"oauth-server-go/conf/log"
-	appsession "oauth-server-go/conf/session"
+	"oauth-server-go/internal/config"
+	"oauth-server-go/internal/config/db"
+	"oauth-server-go/internal/config/log"
+	"oauth-server-go/internal/config/session"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user"
 	"oauth-server-go/oauth"
@@ -25,20 +25,21 @@ func (s *SystemEnvironment) GetDB() *gorm.DB {
 }
 
 func main() {
-	config := conf.Read()
-	log.NewLogger(&config.Logger)
+	c := config.Read()
+
+	log.NewLogger(&c.Logger)
 	defer func() {
 		_ = log.Logger().Sync()
 	}()
 
-	gormDB := db.Connect(&config.DB)
+	gormDB := db.NewGorm(&c.DB)
 	defer func() {
 		gormSQL, _ := gormDB.DB()
 		_ = gormSQL.Close()
 	}()
 	log.Logger().Debug("Gorm connection completed.")
 
-	sessionStore := appsession.NewRedisStore(&config.Redis, &config.Session)
+	sessionStore := session.NewRedisStore(&c.Redis, &c.Session)
 
 	route := gin.Default()
 	route.LoadHTMLGlob("web/template/*")
@@ -58,5 +59,5 @@ func main() {
 
 	oauth.Routing(route, gormDB)
 
-	_ = route.Run(config.Port)
+	_ = route.Run(c.Port)
 }

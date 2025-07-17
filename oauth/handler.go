@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
-	"oauth-server-go/conf/log"
+	"oauth-server-go/internal/config/log"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/pkg"

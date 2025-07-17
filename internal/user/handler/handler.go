@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
-	"oauth-server-go/conf/log"
+	"oauth-server-go/internal/config/log"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user/codes"
 	"oauth-server-go/internal/user/service"

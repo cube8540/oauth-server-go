@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// Config 데이터베이스 연결 설정
 type Config struct {
 	Host        string `json:"host"`
 	Port        int    `json:"port"`
@@ -21,7 +22,8 @@ type Config struct {
 	MaxOpenSize int    `json:"max_open_size"`
 }
 
-func Connect(c *Config) *gorm.DB {
+// NewGorm 새 Gorm 연결풀 인스턴스를 생성한다.
+func NewGorm(c *Config) *gorm.DB {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=Asia/Seoul",
 		c.Host, c.Username, c.Password, c.Dbname, strconv.Itoa(c.Port))
 

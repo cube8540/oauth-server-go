@@ -1,3 +1,4 @@
 /.idea/
 /oauth-server-go.iml
 /conf/config.local.json
+/config
