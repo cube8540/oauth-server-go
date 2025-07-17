@@ -3,7 +3,7 @@ package client
 import (
 	"fmt"
 	"oauth-server-go/oauth/pkg"
-	"oauth-server-go/sql"
+	"oauth-server-go/pkg/sql"
 	"slices"
 	"time"
 )
