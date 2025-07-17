@@ -12,7 +12,6 @@ import (
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
-	"oauth-server-go/security"
 	"strings"
 )
 
@@ -139,7 +138,7 @@ func (h h) approval(ctx *gin.Context) error {
 	redirect, _ := c.RedirectURL(origin.Redirect)
 	to, _ := url.Parse(redirect)
 
-	if login, ok := security.Retrieve(ctx).Get(); ok {
+	if login, ok := web.RetrieveAuthentication(ctx); ok {
 		origin.Username = login.Username
 	}
 
@@ -251,7 +250,7 @@ type m struct {
 func (m m) tokenManagement(ctx *gin.Context) error {
 	switch ctx.GetHeader("Accept") {
 	case "application/json":
-		login, _ := security.Retrieve(ctx).Get()
+		login, _ := web.RetrieveAuthentication(ctx)
 
 		tokens, err := m.service.GetGrantedTokens(login.Username)
 		if err != nil {
@@ -277,7 +276,7 @@ func (m m) tokenManagement(ctx *gin.Context) error {
 // URL 파라미터로 삭제할 토큰 값을 받는다.
 func (m m) deleteToken(ctx *gin.Context) error {
 	tokenValue := ctx.Param("tokenValue")
-	login, _ := security.Retrieve(ctx).Get()
+	login, _ := web.RetrieveAuthentication(ctx)
 	if err := m.service.Delete(login, tokenValue); err != nil {
 		return appErrWrap(err)
 	}

@@ -11,8 +11,6 @@ import (
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user"
 	"oauth-server-go/oauth"
-	"oauth-server-go/security"
-	secsession "oauth-server-go/security/session"
 )
 
 const applicationSessionID = "g_session_id"
@@ -40,9 +38,7 @@ func main() {
 	}()
 	log.Logger().Debug("Gorm connection completed.")
 
-	sessionRedisStore := appsession.NewRedisStore(&config.Redis, &config.Session)
-	session := sessions.Sessions(applicationSessionID, sessionRedisStore)
-	securityBySession := secsession.SecurityStore()
+	sessionStore := appsession.NewRedisStore(&config.Redis, &config.Session)
 
 	route := gin.Default()
 	route.LoadHTMLGlob("web/template/*")
@@ -50,9 +46,8 @@ func main() {
 	route.Static("/js", "./web/js")
 
 	route.Use(web.ErrorHandler)
-	route.Use(session)
-	route.Use(securityBySession)
-	route.Use(security.Authentication)
+	route.Use(sessions.Sessions(applicationSessionID, sessionStore))
+	route.Use(web.SessionAuthenticationHandler)
 
 	env := SystemEnvironment{
 		db: gormDB,

@@ -3,10 +3,10 @@ package token
 import (
 	"errors"
 	"fmt"
+	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
-	"oauth-server-go/security"
 	"time"
 )
 
@@ -406,7 +406,7 @@ func (s *ManagementService) GetGrantedTokens(username string) ([]Token, error) {
 }
 
 // Delete 지정된 액세스 토큰과 연관된 리프레시 토큰을 삭제한다.
-func (s *ManagementService) Delete(owner *security.Login, t string) error {
+func (s *ManagementService) Delete(owner *web.Authentication, t string) error {
 	accessToken, err := s.repository.FindAccessTokenByValue(t)
 	if err != nil {
 		return err

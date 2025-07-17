@@ -4,10 +4,10 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"oauth-server-go/conf/log"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user/codes"
 	"oauth-server-go/internal/user/service"
-	"oauth-server-go/security"
 )
 
 // AuthenticationManager 인증 프로세스 제공 인터페이스
@@ -40,8 +40,8 @@ func (h *API) Auth(c *gin.Context) error {
 		return wrap(err)
 	}
 
-	login := &security.Login{Username: principal.Username}
-	if err = security.Retrieve(c).Set(login); err != nil {
+	auth := web.Authentication{Username: principal.Username}
+	if err = web.Authorization(c, &auth); err != nil {
 		return wrap(err)
 	}
 
@@ -73,6 +73,7 @@ func wrap(err error) error {
 	} else if errors.Is(err, codes.ErrAccountLocked) {
 		return web.Wrap(err, web.ErrCodeBadRequest, "account is locked")
 	} else {
+		log.Sugared().Error(err)
 		return web.Wrap(err, web.ErrCodeUnknown, "internal server codes")
 	}
 }

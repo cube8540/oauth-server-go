@@ -5,10 +5,10 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/stretchr/testify/assert"
 	"net/url"
+	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/testutils"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/pkg"
-	"oauth-server-go/security"
 	"testing"
 )
 
@@ -163,7 +163,7 @@ type handlerApprovalExpect struct {
 type handlerApprovalTestCase struct {
 	requestTestCase
 	setupSession  func() sessions.Session
-	setupSecurity func() security.Store
+	setupSecurity func() *web.Authentication
 	expected      handlerApprovalExpect
 }
 
@@ -206,10 +206,8 @@ func TestHandler_approval(t *testing.T) {
 				session.Set(sessionKeyOriginAuthRequest, serial)
 				return session
 			},
-			setupSecurity: func() security.Store {
-				store := security.NewTestStore()
-				_ = store.Set(&security.Login{Username: testUsername})
-				return store
+			setupSecurity: func() *web.Authentication {
+				return &web.Authentication{Username: testUsername}
 			},
 			expected: handlerApprovalExpect{
 				errorExpected: errorExpected{
@@ -245,10 +243,8 @@ func TestHandler_approval(t *testing.T) {
 				session.Set(sessionKeyOriginAuthRequest, serial)
 				return session
 			},
-			setupSecurity: func() security.Store {
-				store := security.NewTestStore()
-				_ = store.Set(&security.Login{Username: testUsername})
-				return store
+			setupSecurity: func() *web.Authentication {
+				return &web.Authentication{Username: testUsername}
 			},
 			expected: handlerApprovalExpect{
 				consumedRequest: &pkg.AuthorizationRequest{
@@ -284,10 +280,8 @@ func TestHandler_approval(t *testing.T) {
 				session.Set(sessionKeyOriginAuthRequest, serial)
 				return session
 			},
-			setupSecurity: func() security.Store {
-				store := security.NewTestStore()
-				_ = store.Set(&security.Login{Username: testUsername})
-				return store
+			setupSecurity: func() *web.Authentication {
+				return &web.Authentication{Username: testUsername}
 			},
 			expected: handlerApprovalExpect{
 				checkSessionDeleted: true,
@@ -316,7 +310,7 @@ func TestHandler_approval(t *testing.T) {
 			}
 			if tc.setupSecurity != nil {
 				s := tc.setupSecurity()
-				c.Set(security.StoreKey, s)
+				c.Set(web.KeyAuthentication, s)
 			}
 
 			err := handler.approval(c)

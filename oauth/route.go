@@ -12,7 +12,6 @@ import (
 	"oauth-server-go/oauth/code"
 	"oauth-server-go/oauth/pkg"
 	"oauth-server-go/oauth/token"
-	"oauth-server-go/security"
 )
 
 type (
@@ -109,7 +108,7 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 	group.Use(ErrorWrappingMiddleware())
 
 	authorize := group.Group("/authorize")
-	authorize.Use(security.Protected(security.AccessDeniedRedirect("/users/auth")))
+	authorize.Use(web.RequestProtect(web.AccessDeniedRedirectHandler("/users/auth")))
 	authorize.GET("", web.NewHTTPHandler(h.authorize))
 	authorize.POST("", web.NewHTTPHandler(h.approval))
 
@@ -125,7 +124,7 @@ func Routing(route *gin.Engine, db *gorm.DB) {
 	}
 
 	manageGroup := route.Group("/oauth/manage")
-	manageGroup.Use(security.Protected(security.AccessDeniedRedirect("/users/auth")))
+	manageGroup.Use(web.RequestProtect(web.AccessDeniedRedirectHandler("/users/auth")))
 	manageGroup.GET("/tokens", web.NewHTTPHandler(m.tokenManagement))
 	manageGroup.DELETE("/tokens/:tokenValue", web.NewHTTPHandler(m.deleteToken))
 }
