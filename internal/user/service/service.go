@@ -2,7 +2,7 @@ package service
 
 import (
 	"fmt"
-	"oauth-server-go/internal/user/codes"
+	usererr "oauth-server-go/internal/user/errors"
 	"oauth-server-go/internal/user/model"
 	"oauth-server-go/pkg/hash"
 )
@@ -27,7 +27,7 @@ func NewAuthenticationService(repo Repository) *AuthenticationService {
 // Auth 인증 요청을 받아 인증 프로세스를 실행하고 인증된 사용자 인스턴스를 생성한다.
 func (s *AuthenticationService) Auth(request *AuthenticationRequest) (*Principal, error) {
 	if request.Username == "" || request.Password == "" {
-		return nil, fmt.Errorf("%w: username or password is missing", codes.ErrRequireParamsMissing)
+		return nil, fmt.Errorf("%w: username or password is missing", usererr.ErrRequireParamsMissing)
 	}
 
 	account, err := s.repo.FindByUsername(request.Username)
@@ -36,13 +36,13 @@ func (s *AuthenticationService) Auth(request *AuthenticationRequest) (*Principal
 	}
 
 	if cmp, err := hash.Compare(account.Password, request.Password); err != nil {
-		return nil, fmt.Errorf("%w: %v", codes.ErrPasswordNotMatched, err)
+		return nil, fmt.Errorf("%w: %v", usererr.ErrPasswordNotMatched, err)
 	} else if !cmp {
-		return nil, codes.ErrPasswordNotMatched
+		return nil, usererr.ErrPasswordNotMatched
 	}
 
 	if !account.Active {
-		return nil, codes.ErrAccountLocked
+		return nil, usererr.ErrAccountLocked
 	}
 
 	return NewPrincipal(account.Username), nil

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"oauth-server-go/internal/config/log"
 	"oauth-server-go/internal/pkg/web"
-	"oauth-server-go/internal/user/codes"
+	usererr "oauth-server-go/internal/user/errors"
 	"oauth-server-go/internal/user/service"
 )
 
@@ -66,11 +66,11 @@ func (h *Static) LoginPage(c *gin.Context) error {
 
 // wrap 인자로 받은 err을 사전에 정의된 에러로 랩핑한다.
 func wrap(err error) error {
-	if errors.Is(err, codes.ErrRequireParamsMissing) {
+	if errors.Is(err, usererr.ErrRequireParamsMissing) {
 		return web.Wrap(err, web.ErrCodeBadRequest, "require parameter is missing")
-	} else if errors.Is(err, codes.ErrAccountNotFound) || errors.Is(err, codes.ErrPasswordNotMatched) {
+	} else if errors.Is(err, usererr.ErrAccountNotFound) || errors.Is(err, usererr.ErrPasswordNotMatched) {
 		return web.Wrap(err, web.ErrCodeBadRequest, "id/password is not matched")
-	} else if errors.Is(err, codes.ErrAccountLocked) {
+	} else if errors.Is(err, usererr.ErrAccountLocked) {
 		return web.Wrap(err, web.ErrCodeBadRequest, "account is locked")
 	} else {
 		log.Sugared().Error(err)

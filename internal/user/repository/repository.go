@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"gorm.io/gorm"
-	"oauth-server-go/internal/user/codes"
+	usererr "oauth-server-go/internal/user/errors"
 	"oauth-server-go/internal/user/model"
 )
 
@@ -23,7 +23,7 @@ func (g *Gorm) FindByUsername(u string) (*model.Account, error) {
 	var account model.Account
 	err := g.db.Where(&model.Account{Username: u}).First(&account).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, fmt.Errorf("%w: %v(%s)", err, codes.ErrAccountNotFound, u)
+		return nil, fmt.Errorf("%w: %v(%s)", err, usererr.ErrAccountNotFound, u)
 	}
 	return &account, nil
 }
