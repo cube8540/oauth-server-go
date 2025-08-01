@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm"
 	"oauth-server-go/internal/pkg/oauth"
 	"oauth-server-go/internal/pkg/web"
-	"oauth-server-go/internal/user/codes"
+	usererr "oauth-server-go/internal/user/errors"
 	"oauth-server-go/internal/user/repository"
 	"oauth-server-go/internal/user/service"
 	"oauth-server-go/oauth/client"
@@ -35,7 +35,7 @@ func (f *authorizationRequestFlow) consume(c *client.Client, r *oauth.Authorizat
 	case oauth.ResponseTypeToken:
 		return f.implicitFlow.Generate(c, r)
 	default:
-		return nil, NewErr(oauth.ErrUnsupportedResponseType, "unsupported")
+		return nil, NewErr(oauth.ErrCodeUnsupportedResponseType, "unsupported")
 	}
 }
 
@@ -50,7 +50,7 @@ func (f *tokenIssueFlow) generate(c *client.Client, r *oauth.TokenRequest) (*tok
 	case oauth.GrantTypeClientCredentials:
 		return f.clientCredentialsFlow.Generate(c, r)
 	default:
-		return nil, nil, NewErr(oauth.ErrUnsupportedGrantType, "unsupported")
+		return nil, nil, NewErr(oauth.ErrCodeUnsupportedGrantType, "unsupported")
 	}
 }
 
@@ -63,10 +63,10 @@ func adaptAuthentication(db *gorm.DB) token.ResourceOwnerAuthentication {
 			Username: u,
 			Password: p,
 		})
-		if errors.Is(err, codes.ErrAccountNotFound) ||
-			errors.Is(err, codes.ErrPasswordNotMatched) ||
-			errors.Is(err, codes.ErrAccountLocked) {
-			return false, NewErr(oauth.ErrAccessDenied, "failed resource owner credentials")
+		if errors.Is(err, usererr.ErrAccountNotFound) ||
+			errors.Is(err, usererr.ErrPasswordNotMatched) ||
+			errors.Is(err, usererr.ErrAccountLocked) {
+			return false, NewErr(oauth.ErrCodeAccessDenied, "failed resource owner credentials")
 		}
 		if err != nil {
 			return false, err
@@ -137,7 +137,7 @@ func newClientAuthRequiredMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		_, exists := c.Get(oauth2ShareKeyAuthClient)
 		if !exists {
-			_ = c.Error(NewErr(oauth.ErrUnauthorizedClient, "client auth is required"))
+			_ = c.Error(NewErr(oauth.ErrCodeUnauthorizedClient, "client auth is required"))
 			c.Abort()
 		} else {
 			c.Next()

@@ -1,8 +1,8 @@
 package code
 
 import (
+	"oauth-server-go/internal/oauth/scope"
 	"oauth-server-go/internal/pkg/oauth"
-	"oauth-server-go/internal/pkg/oauth/scope"
 	"oauth-server-go/oauth/client"
 )
 

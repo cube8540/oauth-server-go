@@ -8,9 +8,9 @@ import (
 	"oauth-server-go/internal/config/db"
 	"oauth-server-go/internal/config/log"
 	"oauth-server-go/internal/config/session"
+	oauthserver "oauth-server-go/internal/oauth/server"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/internal/user"
-	"oauth-server-go/oauth"
 )
 
 const applicationSessionID = "g_session_id"
@@ -57,7 +57,7 @@ func main() {
 	user.APIRouting(route, &env)
 	user.StaticRouting(route)
 
-	oauth.Routing(route, gormDB)
+	oauthserver.OAuth2RFCRouting(route, &env)
 
 	_ = route.Run(c.Port)
 }

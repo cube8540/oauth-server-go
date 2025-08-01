@@ -48,7 +48,7 @@ func TestHandler_authorize(t *testing.T) {
 	tests := []handlerAuthorizeTestCase{
 		{
 			requestTestCase: requestTestCase{
-				name: "client_id가 입력 되지 않은 경우 ErrInvalidRequest 발생",
+				name: "client_id가 입력 되지 않은 경우 ErrCodeInvalidRequest 발생",
 				query: map[string][]string{
 					"client_id": nil,
 				},
@@ -56,14 +56,14 @@ func TestHandler_authorize(t *testing.T) {
 			expected: handlerAuthorizeExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: oauth.ErrInvalidRequest,
+						Code: oauth.ErrCodeInvalidRequest,
 					},
 				},
 			},
 		},
 		{
 			requestTestCase: requestTestCase{
-				name: "response_type이 입력 되지 않은 경우 ErrInvalidRequest 발생",
+				name: "response_type이 입력 되지 않은 경우 ErrCodeInvalidRequest 발생",
 				query: map[string][]string{
 					"client_id":     {testClientIDValue},
 					"response_type": nil,
@@ -74,7 +74,7 @@ func TestHandler_authorize(t *testing.T) {
 			expected: handlerAuthorizeExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: oauth.ErrInvalidRequest,
+						Code: oauth.ErrCodeInvalidRequest,
 					},
 					routeError: &routeErr{
 						to: testutils.ParseURL(testLocalHost8080),
@@ -84,7 +84,7 @@ func TestHandler_authorize(t *testing.T) {
 		},
 		{
 			requestTestCase: requestTestCase{
-				name: "response_type이 code, token이 아닌 경우 ErrUnsupportedResponseType 발생",
+				name: "response_type이 code, token이 아닌 경우 ErrCodeUnsupportedResponseType 발생",
 				query: map[string][]string{
 					"client_id":     {testClientIDValue},
 					"response_type": {"wrong_type"},
@@ -95,7 +95,7 @@ func TestHandler_authorize(t *testing.T) {
 			expected: handlerAuthorizeExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: oauth.ErrUnsupportedResponseType,
+						Code: oauth.ErrCodeUnsupportedResponseType,
 					},
 					routeError: &routeErr{
 						to: testutils.ParseURL(testLocalHost8080),
@@ -171,7 +171,7 @@ func TestHandler_approval(t *testing.T) {
 	tests := []handlerApprovalTestCase{
 		{
 			requestTestCase: requestTestCase{
-				name: "세션에 저장된 AuthorizationRequest가 없을 경우 ErrInvalidRequest 발생",
+				name: "세션에 저장된 AuthorizationRequest가 없을 경우 ErrCodeInvalidRequest 발생",
 			},
 			setupSession: func() sessions.Session {
 				session := testutils.NewSessions(testSessionID)
@@ -181,14 +181,14 @@ func TestHandler_approval(t *testing.T) {
 			expected: handlerApprovalExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: oauth.ErrInvalidRequest,
+						Code: oauth.ErrCodeInvalidRequest,
 					},
 				},
 			},
 		},
 		{
 			requestTestCase: requestTestCase{
-				name:            "승인된 스코프의 개수가 0개일 경우 ErrInvalidScope 발생",
+				name:            "승인된 스코프의 개수가 0개일 경우 ErrCodeInvalidScope 발생",
 				clientRetriever: fixedClientRetriever(testClientIDValue, testClient),
 				form: map[string][]string{
 					"scope": {},
@@ -212,7 +212,7 @@ func TestHandler_approval(t *testing.T) {
 			expected: handlerApprovalExpect{
 				errorExpected: errorExpected{
 					oauthError: &Error{
-						Code: oauth.ErrInvalidScope,
+						Code: oauth.ErrCodeInvalidScope,
 					},
 					routeError: &routeErr{
 						to: testutils.ParseURL(testLocalHost8080),

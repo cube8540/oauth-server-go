@@ -115,7 +115,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 	tests := []authCodeFlowTestCase{
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "요청에 인가 코드가 없을 경우 ErrInvalidRequest 발생",
+				name:  "요청에 인가 코드가 없을 경우 ErrCodeInvalidRequest 발생",
 				store: &mockStore{},
 				request: &oauth.TokenRequest{
 					Code: "",
@@ -182,7 +182,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "인가 코드 code_challenge 검증 실패시 ErrInvalidRequest 발생",
+				name:  "인가 코드 code_challenge 검증 실패시 ErrCodeInvalidRequest 발생",
 				store: &mockStore{},
 				client: &client.Client{
 					ID: testClientID,
@@ -204,7 +204,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "리다이렉트 URL이 일치 하지 않는 경우 ErrInvalidRequest 발생",
+				name:  "리다이렉트 URL이 일치 하지 않는 경우 ErrCodeInvalidRequest 발생",
 				store: &mockStore{},
 				client: &client.Client{
 					ID:        testClientID,
@@ -213,7 +213,7 @@ func TestAuthorizationCodeFlow_Generate(t *testing.T) {
 				request: &oauth.TokenRequest{
 					Code:         testAuthCodeValue,
 					CodeVerifier: testCodeChallenge,
-					Redirect:     "http://wrong-redirect-url.com",
+					Redirect:     "https://wrong-redirect-url.com",
 				},
 				expect: tokenGrantExpected{
 					err: ErrInvalidRequest,
@@ -331,7 +331,7 @@ func TestImplicitFlow_Generate(t *testing.T) {
 	tests := []implicitFlowTestCase{
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "State 파라미터를 입력하지 않았을 경우 ErrInvalidRequest 발생",
+				name:  "State 파라미터를 입력하지 않았을 경우 ErrCodeInvalidRequest 발생",
 				store: &mockStore{},
 				expect: tokenGrantExpected{
 					err: ErrInvalidRequest,
@@ -400,7 +400,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 	tests := []resourceOwnerFlowTestCase{
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "유저 아이디 미입력시 ErrInvalidRequest 발생",
+				name:  "유저 아이디 미입력시 ErrCodeInvalidRequest 발생",
 				store: &mockStore{},
 				request: &oauth.TokenRequest{
 					Username: "",
@@ -412,7 +412,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 		},
 		{
 			tokenGrantTestCase: tokenGrantTestCase{
-				name:  "유저 패스워드 미입력시 ErrInvalidRequest 발생",
+				name:  "유저 패스워드 미입력시 ErrCodeInvalidRequest 발생",
 				store: &mockStore{},
 				request: &oauth.TokenRequest{
 					Username: testUsername,
@@ -519,7 +519,7 @@ func TestResourceOwnerPasswordCredentialsFlow_Generate(t *testing.T) {
 func TestRefreshFlow_Generate(t *testing.T) {
 	tests := []tokenGrantTestCase{
 		{
-			name:  "리플레시 토큰이 입력 되지 않았을 경우 ErrInvalidRequest 발생",
+			name:  "리플레시 토큰이 입력 되지 않았을 경우 ErrCodeInvalidRequest 발생",
 			store: &mockStore{},
 			request: &oauth.TokenRequest{
 				RefreshToken: "",

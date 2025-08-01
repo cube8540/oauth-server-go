@@ -16,7 +16,7 @@ func NewRepository(db *gorm.DB) *Repository {
 
 func (r *Repository) FindByClientID(id string) (*Client, error) {
 	var c Client
-	if err := r.db.Preload("Scopes").Where(&Client{ClientID: id}).First(&c).Error; err != nil {
+	if err := r.db.Preload("scopes").Where(&Client{ClientID: id}).First(&c).Error; err != nil {
 		switch {
 		case errors.Is(err, gorm.ErrRecordNotFound):
 			return nil, fmt.Errorf("%w: client(%s)", ErrNotFound, id)

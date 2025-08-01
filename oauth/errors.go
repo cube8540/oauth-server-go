@@ -117,16 +117,16 @@ func oauthErrWrap(err error) error {
 		errors.Is(err, client.ErrNotFound),
 		errors.Is(err, code.ErrParameterMissing),
 		errors.Is(err, code.ErrNotFound):
-		return NewErr(oauth.ErrInvalidRequest, err.Error())
+		return NewErr(oauth.ErrCodeInvalidRequest, err.Error())
 	case errors.Is(err, token.ErrUnauthorized),
 		errors.Is(err, token.ErrTokenCannotGrant),
 		errors.Is(err, client.ErrAuthentication):
-		return NewErr(oauth.ErrInvalidGrant, err.Error())
+		return NewErr(oauth.ErrCodeInvalidGrant, err.Error())
 	case errors.Is(err, client.ErrInvalidScope):
-		return NewErr(oauth.ErrInvalidScope, err.Error())
+		return NewErr(oauth.ErrCodeInvalidScope, err.Error())
 	default:
 		log.Sugared().Errorf("codes occurred in oauth handler %v", err)
-		return NewErr(oauth.ErrServerError, "internal server codes")
+		return NewErr(oauth.ErrCodeServerError, "internal server codes")
 	}
 }
 
@@ -138,7 +138,7 @@ func parse(err error) oauth.ErrResponse {
 		er = oauth.NewErrResponse(oauthErr.Code, oauthErr.Message)
 	} else {
 		log.Sugared().Errorf("codes occurred in oauth handler %v", err)
-		er = oauth.NewErrResponse(oauth.ErrServerError, "unknown codes")
+		er = oauth.NewErrResponse(oauth.ErrCodeServerError, "unknown codes")
 	}
 
 	var requestErr *authorizeError
@@ -150,11 +150,11 @@ func parse(err error) oauth.ErrResponse {
 
 func httpStatus(c string) int {
 	switch c {
-	case oauth.ErrInvalidRequest, oauth.ErrInvalidGrant, oauth.ErrInvalidScope, oauth.ErrInvalidClient:
+	case oauth.ErrCodeInvalidRequest, oauth.ErrCodeInvalidGrant, oauth.ErrCodeInvalidScope, oauth.ErrCodeInvalidClient:
 		return http.StatusBadRequest
-	case oauth.ErrAccessDenied, oauth.ErrUnauthorizedClient:
+	case oauth.ErrCodeAccessDenied, oauth.ErrCodeUnauthorizedClient:
 		return http.StatusUnauthorized
-	case oauth.ErrTemporaryUnavailable:
+	case oauth.ErrCodeTemporaryUnavailable:
 		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError

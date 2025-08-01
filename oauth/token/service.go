@@ -3,8 +3,8 @@ package token
 import (
 	"errors"
 	"fmt"
+	"oauth-server-go/internal/oauth/scope"
 	"oauth-server-go/internal/pkg/oauth"
-	"oauth-server-go/internal/pkg/oauth/scope"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/code"

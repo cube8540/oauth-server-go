@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"oauth-server-go/internal/config/log"
+	"oauth-server-go/internal/oauth/scope"
 	"oauth-server-go/internal/pkg/oauth"
-	"oauth-server-go/internal/pkg/oauth/scope"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/oauth/client"
 	"oauth-server-go/oauth/token"
@@ -77,7 +77,7 @@ func (h h) authorize(ctx *gin.Context) error {
 		return err
 	}
 	if r.ClientID == "" {
-		return NewErr(oauth.ErrInvalidRequest, "client id is required")
+		return NewErr(oauth.ErrCodeInvalidRequest, "client id is required")
 	}
 
 	c, err := h.clientRetriever(r.ClientID)
@@ -91,10 +91,10 @@ func (h h) authorize(ctx *gin.Context) error {
 	}
 	to, _ := url.Parse(redirect)
 	if r.ResponseType == "" {
-		return wrap(NewErr(oauth.ErrInvalidRequest, "require parameter is missing"), &r, to)
+		return wrap(NewErr(oauth.ErrCodeInvalidRequest, "require parameter is missing"), &r, to)
 	}
 	if r.ResponseType != oauth.ResponseTypeCode && r.ResponseType != oauth.ResponseTypeToken {
-		return wrap(NewErr(oauth.ErrUnsupportedResponseType, "unsupported"), &r, to)
+		return wrap(NewErr(oauth.ErrCodeUnsupportedResponseType, "unsupported"), &r, to)
 	}
 
 	scopes, err := c.Scopes.GetAll(scope.Split(r.Scopes))
@@ -129,7 +129,7 @@ func (h h) approval(ctx *gin.Context) error {
 		return err
 	}
 	if origin == nil {
-		return NewErr(oauth.ErrInvalidRequest, "origin request is not found")
+		return NewErr(oauth.ErrCodeInvalidRequest, "origin request is not found")
 	}
 	c, err := h.clientRetriever(origin.ClientID)
 	if err != nil {
@@ -145,7 +145,7 @@ func (h h) approval(ctx *gin.Context) error {
 
 	rs := ctx.PostFormArray("scope")
 	if len(rs) == 0 {
-		return wrap(NewErr(oauth.ErrInvalidScope, "resource owner denied access"), origin, to)
+		return wrap(NewErr(oauth.ErrCodeInvalidScope, "resource owner denied access"), origin, to)
 	}
 	origin.Scopes = strings.Join(rs, " ")
 
@@ -190,7 +190,7 @@ func (h h) issueToken(ctx *gin.Context) error {
 		return err
 	}
 	if at == nil {
-		return NewErr(oauth.ErrServerError, "access token cannot issue")
+		return NewErr(oauth.ErrCodeServerError, "access token cannot issue")
 	}
 	var scopes []string
 	for _, s := range at.Scopes {
@@ -229,7 +229,7 @@ func (h h) introspection(ctx *gin.Context) error {
 		return err
 	}
 	if r.Token == "" {
-		return NewErr(oauth.ErrInvalidRequest, "token is required")
+		return NewErr(oauth.ErrCodeInvalidRequest, "token is required")
 	}
 	clientValue, _ := ctx.Get(oauth2ShareKeyAuthClient)
 	intro, err := h.introspector(clientValue.(*client.Client), &r)
