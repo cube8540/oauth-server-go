@@ -24,7 +24,7 @@ type mockRetriever struct {
 	Actual func(id string) (*Client, bool)
 }
 
-func (m *mockRetriever) Get(id string) (*Client, bool) {
+func (m *mockRetriever) FindByClientID(id string) (*Client, bool) {
 	return m.Actual(id)
 }
 
