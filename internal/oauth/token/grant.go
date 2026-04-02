@@ -199,6 +199,27 @@ type RefreshTokenGrant struct {
 
 	// retrieveRefreshToken 리플레시 토큰을 조회하는 함수
 	retrieveRefreshToken RetrieveRefreshToken
+
+	// rotation 신규 토큰 발행 후 기존의 리플래시 토큰을 재사용할지 여부
+	rotation bool
+}
+
+func NewRefreshTokenGrant(tokenGenerator GenerateToken, refreshTokenGenerator GenerateToken, refreshTokenRetriever RetrieveRefreshToken) *RefreshTokenGrant {
+	return &RefreshTokenGrant{
+		accessTokenGenerator:  tokenGenerator,
+		refreshTokenGenerator: refreshTokenGenerator,
+		retrieveRefreshToken:  refreshTokenRetriever,
+		rotation:              true,
+	}
+}
+
+func NewRefreshTokenGrantWithoutRotation(tokenGenerator GenerateToken, refreshTokenRetriever RetrieveRefreshToken) *RefreshTokenGrant {
+	return &RefreshTokenGrant{
+		accessTokenGenerator:  tokenGenerator,
+		refreshTokenGenerator: nil,
+		retrieveRefreshToken:  refreshTokenRetriever,
+		rotation:              false,
+	}
 }
 
 // GenerateToken 리플레시 토큰을 이용하여 새 엑세스 토큰과 리플레시 토큰을 생성한다.
@@ -235,6 +256,12 @@ func (srv *RefreshTokenGrant) GenerateToken(c *client.Client, request *Request) 
 	token := New(c, srv.accessTokenGenerator)
 	token.ApplyResourceOwnerInfo(expiredToken.Username(), scopes)
 
-	refreshToken := NewRefreshToken(token, srv.refreshTokenGenerator)
+	var refreshToken *RefreshToken
+	if srv.refreshTokenGenerator != nil && srv.rotation {
+		refreshToken = NewRefreshToken(token, srv.refreshTokenGenerator)
+	} else {
+		storedRefreshToken.token = token
+		refreshToken = storedRefreshToken
+	}
 	return token, refreshToken, nil
 }

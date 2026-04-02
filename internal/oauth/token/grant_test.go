@@ -17,6 +17,8 @@ const (
 	testAccessTokenValue = "test_access_token"
 	// testRefreshTokenValue 테스트용으로 사용될 리플레시 토큰의 토큰값
 	testRefreshTokenValue = "test_refresh_token"
+	// testStoredRefreshTokenValue 테스트용으로 사용될 이미 저장소에 저장되어 있는 리플레시 토큰값
+	testStoredRefreshTokenValue = "test_stored_refresh_token"
 
 	// testClientID 테스트용으로 사용될 클라이언트의 아이디
 	testClientID = "test_client_id"
@@ -31,6 +33,9 @@ const (
 // 토큰 발급 테스트에서 사용할 상수
 var (
 	testScopeArray = []string{"scope_1", "scope_2", "scope_3"}
+
+	testStoredStart = time.Now().Add(-time.Hour)
+	testStoredEnd   = time.Now().Add(time.Hour)
 )
 
 // generateTestAccessToken 테스트용으로 사용될 엑세스 토큰 발급 함수
@@ -43,6 +48,12 @@ func generateTestAccessToken() string {
 // [token.GenerateToken] 함수의 구현채로 사용된다.
 func generateTestRefreshToken() string {
 	return testRefreshTokenValue
+}
+
+// generateStoredRefreshToken 테스트용으로 사용될 이미 저장된 리플레시 토큰 발급 함수
+// [token.GenerateToken] 함수의 구현채로 사용된다.
+func generateStoredRefreshToken() string {
+	return testStoredRefreshTokenValue
 }
 
 func newClient(clientID string, t client.Type, scope []string) *client.Client {
@@ -640,6 +651,8 @@ type refreshTokenGrantTestCase struct {
 
 	refreshTokenGenerator GenerateToken
 	refreshTokenRetriever RetrieveRefreshToken
+
+	rotation bool
 }
 
 // retrieveRefreshToken 테스트용으로 사용할 리플레시 토큰 검색 함수
@@ -676,7 +689,7 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 			},
 			refreshTokenRetriever: func() RetrieveRefreshToken {
 				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
-				refreshToken := NewRefreshToken(expiredToken, generateTestRefreshToken)
+				refreshToken := NewRefreshToken(expiredToken, generateStoredRefreshToken)
 				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
 			}(),
 			grantExceptCase: grantExceptCase{
@@ -693,7 +706,7 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 			},
 			refreshTokenRetriever: func() RetrieveRefreshToken {
 				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
-				refreshToken := NewRefreshToken(expiredToken, generateTestRefreshToken)
+				refreshToken := NewRefreshToken(expiredToken, generateStoredRefreshToken)
 				// 만료처리
 				refreshToken.Range = period.New(time.Duration(-1))
 				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
@@ -714,7 +727,7 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 			refreshTokenRetriever: func() RetrieveRefreshToken {
 				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
 				expiredToken.ApplyResourceOwnerInfo(testUsername, []string{"scope_1", "scope_2", "scope_3", "scope_4"})
-				refreshToken := NewRefreshToken(expiredToken, generateTestRefreshToken)
+				refreshToken := NewRefreshToken(expiredToken, generateStoredRefreshToken)
 				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
 			}(),
 			refreshTokenGenerator: generateTestRefreshToken,
@@ -734,11 +747,10 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 				},
 				accessTokenGenerator: generateTestAccessToken,
 			},
-			refreshTokenGenerator: generateTestRefreshToken,
 			refreshTokenRetriever: func() RetrieveRefreshToken {
 				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
 				expiredToken.ApplyResourceOwnerInfo(testUsername, testScopeArray)
-				refreshToken := NewRefreshToken(expiredToken, generateTestRefreshToken)
+				refreshToken := NewRefreshToken(expiredToken, generateStoredRefreshToken)
 				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
 			}(),
 			grantExceptCase: grantExceptCase{
@@ -755,17 +767,66 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 				},
 				accessTokenGenerator: generateTestAccessToken,
 			},
-			refreshTokenGenerator: generateTestRefreshToken,
 			refreshTokenRetriever: func() RetrieveRefreshToken {
 				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
 				expiredToken.ApplyResourceOwnerInfo(testUsername, testScopeArray)
-				refreshToken := NewRefreshToken(expiredToken, generateTestRefreshToken)
+				refreshToken := NewRefreshToken(expiredToken, generateStoredRefreshToken)
 				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
 			}(),
 			grantExceptCase: grantExceptCase{
 				assertAccessToken: func(t *testing.T, accessToken *AccessToken) {
 					assert.Equal(t, testClientID, accessToken.Client().Id())
 					assert.Equal(t, testUsername, accessToken.Username())
+				},
+			},
+		},
+		{
+			grantTestCase: grantTestCase{
+				name:   "rotaiton이 fasle로 설정되어 있을 경우 기존의 리플래시 토큰을 사용한다.",
+				client: newClient(testClientID, client.TypeConfidential, testScopeArray),
+				request: &Request{
+					RefreshToken: testRefreshTokenValue,
+					Scope:        scope.Join(testScopeArray),
+				},
+				accessTokenGenerator: generateTestAccessToken,
+			},
+			refreshTokenRetriever: func() RetrieveRefreshToken {
+				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
+				expiredToken.ApplyResourceOwnerInfo(testUsername, testScopeArray)
+				refreshToken := NewRefreshTokenWithRange(expiredToken, generateStoredRefreshToken, period.NewWithStartEnd(testStoredStart, testStoredEnd))
+				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
+			}(),
+			grantExceptCase: grantExceptCase{
+				assertRefreshToken: func(t *testing.T, refreshToken *RefreshToken) {
+					assert.Equal(t, testStoredRefreshTokenValue, refreshToken.Value())
+					assert.Equal(t, testStoredStart, refreshToken.Range.Start())
+					assert.Equal(t, testStoredEnd, refreshToken.Range.End())
+				},
+			},
+		},
+		{
+			grantTestCase: grantTestCase{
+				name:   "rotation이 true로 설정되어 있을 경우 새 리플레시 토큰을 발행한다.",
+				client: newClient(testClientID, client.TypeConfidential, testScopeArray),
+				request: &Request{
+					RefreshToken: testRefreshTokenValue,
+					Scope:        scope.Join(testScopeArray),
+				},
+				accessTokenGenerator: generateTestAccessToken,
+			},
+			refreshTokenGenerator: generateTestRefreshToken,
+			refreshTokenRetriever: func() RetrieveRefreshToken {
+				expiredToken := New(newClient(testClientID, client.TypeConfidential, testScopeArray), generateTestAccessToken)
+				expiredToken.ApplyResourceOwnerInfo(testUsername, testScopeArray)
+				refreshToken := NewRefreshToken(expiredToken, generateStoredRefreshToken)
+				return retrieveRefreshToken(testRefreshTokenValue, refreshToken)
+			}(),
+			rotation: true,
+			grantExceptCase: grantExceptCase{
+				assertRefreshToken: func(t *testing.T, refreshToken *RefreshToken) {
+					assert.Equal(t, testRefreshTokenValue, refreshToken.Value())
+					assert.NotEqual(t, testStoredStart, refreshToken.Range.Start())
+					assert.NotEqual(t, testStoredEnd, refreshToken.Range.End())
 				},
 			},
 		},
@@ -777,6 +838,7 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 				accessTokenGenerator:  tc.accessTokenGenerator,
 				refreshTokenGenerator: tc.refreshTokenGenerator,
 				retrieveRefreshToken:  tc.refreshTokenRetriever,
+				rotation:              tc.rotation,
 			}
 
 			accessToken, refreshToken, err := granter.GenerateToken(tc.client, tc.request)
