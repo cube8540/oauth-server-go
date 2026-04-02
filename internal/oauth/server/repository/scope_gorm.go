@@ -14,7 +14,7 @@ var dummy = Scope{}
 // FindScopeByValue Gorm을 이용하여 데이터베이스에서 스코프들을 조회해 반환한다.
 func FindScopeByValue(db *gorm.DB, value ...string) []Scope {
 	var scopes []Scope
-	if err := db.Where(dummy.TableName()+".value IN (?)", value).Find(&scopes).Error; err != nil {
+	if err := db.Where(dummy.TableName()+".code IN (?)", value).Find(&scopes).Error; err != nil {
 		log.Sugared().Errorf("error occurred during select scope(%v): %v", value, err)
 	}
 	return scopes
