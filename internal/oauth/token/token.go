@@ -108,7 +108,7 @@ type RefreshToken struct {
 	value string
 
 	// token 리플래시 토큰 사용시 재생성할 액세스 토큰
-	token AccessToken
+	token *AccessToken
 
 	period.Range
 }
@@ -116,7 +116,7 @@ type RefreshToken struct {
 func NewRefreshToken(token *AccessToken, g GenerateToken) *RefreshToken {
 	return &RefreshToken{
 		value: g(),
-		token: *token,
+		token: token,
 		Range: period.New(refreshExpiresMinute),
 	}
 }
@@ -124,7 +124,7 @@ func NewRefreshToken(token *AccessToken, g GenerateToken) *RefreshToken {
 func NewRefreshTokenWithRange(token *AccessToken, g GenerateToken, r period.Range) *RefreshToken {
 	return &RefreshToken{
 		value: g(),
-		token: *token,
+		token: token,
 		Range: r,
 	}
 }
@@ -134,5 +134,5 @@ func (t *RefreshToken) Value() string {
 }
 
 func (t *RefreshToken) Token() *AccessToken {
-	return &t.token
+	return t.token
 }
