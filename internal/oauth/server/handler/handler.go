@@ -169,7 +169,7 @@ func (h *Handler) Authorize(ctx *gin.Context) error {
 	authentication, _ := web.RetrieveAuthentication(ctx)
 	request.Username = authentication.Username
 
-	ctx.HTML(http.StatusOK, "approve.html", gin.H{
+	ctx.HTML(http.StatusOK, "approval.html", gin.H{
 		"scopes": scopes,
 		"c":      clt.Name(),
 	})
