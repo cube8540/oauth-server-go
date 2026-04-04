@@ -174,3 +174,9 @@ func (b *TokenGormBridge) DeleteRefreshToken(refreshToken *token.RefreshToken) e
 	}
 	return DeleteByRefreshToken(b.db, tokenModel)
 }
+
+func (b *TokenGormBridge) Transaction(fn func(TokenRepository) error) error {
+	return b.db.Transaction(func(tx *gorm.DB) error {
+		return fn(NewTokenGormBridge(tx))
+	})
+}

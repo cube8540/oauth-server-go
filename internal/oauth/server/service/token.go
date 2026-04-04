@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"oauth-server-go/internal/oauth/client"
 	oautherr "oauth-server-go/internal/oauth/errors"
+	"oauth-server-go/internal/oauth/server/repository"
 	"oauth-server-go/internal/oauth/token"
 )
 
@@ -60,29 +61,56 @@ func ChooseTokenGranter(t token.GrantType) (TokenGranter, error) {
 	}
 }
 
-// TokenRepository 엑세스 토큰 저장소
-type TokenRepository interface {
-	// FindAccessTokenByValue 저장소에서 엑세스 토큰을 조회한다.
-	//
-	// Returns:
-	//	 - *token.AccessToken: 조회된 엑세스 토큰
-	//	 - bool: 조회 성공 여부
-	FindAccessTokenByValue(token string) (*token.AccessToken, bool)
+// TokenIssuer 생성된 토큰을 저장소에 저장하는 서비스 구조체
+//
+// TokenGranter 를 통해 발급된 토큰을 저장소에 저장한다.
+type TokenIssuer struct {
+	repo    repository.TokenRepository
+	granter TokenGranter
+}
 
-	// FindRefreshTokenByValue 저장소에서 리플레시 토큰을 조회한다.
-	//
-	// Returns:
-	//	 - *token.RefreshToken: 조회된 리플레시 토큰
-	//	 - bool: 조회 성공 여부
-	FindRefreshTokenByValue(token string) (*token.RefreshToken, bool)
+func (srv *TokenIssuer) GenerateToken(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
+	accessToken, refreshToken, err := srv.granter.GenerateToken(c, request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = srv.repo.Transaction(func(r repository.TokenRepository) error {
+		if err = r.SaveAccessToken(accessToken); err != nil {
+			return fmt.Errorf("error occurred while saving access token: %w", err)
+		}
+
+		if refreshToken != nil {
+			if err = r.SaveRefreshToken(refreshToken); err != nil {
+				return fmt.Errorf("error occurred while saving refresh token: %w", err)
+			}
+		}
+
+		if request.Type == token.GrantTypeRefreshToken {
+			storedRefreshToken, _ := r.FindRefreshTokenByValue(request.RefreshToken)
+			storedAccessToken := storedRefreshToken.Token()
+
+			if err = srv.repo.DeleteRefreshToken(storedRefreshToken); err != nil {
+				return fmt.Errorf("error occurred while deleting refresh token: %w", err)
+			}
+
+			if err = srv.repo.DeleteAccessToken(storedAccessToken); err != nil {
+				return fmt.Errorf("error occurred while deleting access token: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	return accessToken, refreshToken, err
 }
 
 // TokenService 엑세스 토큰 및 리플레시 토큰에 대한 관리 포인트를 제공하는 서비스 구조체
 type TokenService struct {
-	repo TokenRepository
+	repo repository.TokenRepository
 }
 
-func NewTokenService(repo TokenRepository) *TokenService {
+func NewTokenService(repo repository.TokenRepository) *TokenService {
 	return &TokenService{repo: repo}
 }
 

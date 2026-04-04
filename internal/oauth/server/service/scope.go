@@ -1,22 +1,18 @@
 package service
 
-import "oauth-server-go/internal/oauth/scope"
-
-// ScopeRepository 스코프 저장소
-type ScopeRepository interface {
-
-	// FindByValue 저장소에서 스코프들을 조회한다.
-	FindByValue(value ...string) []scope.Scope
-}
+import (
+	"oauth-server-go/internal/oauth/scope"
+	"oauth-server-go/internal/oauth/server/repository"
+)
 
 // ScopeService 스코프 서비스
 //
 // 스코프의 관리 포인트를 제공한다.
 type ScopeService struct {
-	repo ScopeRepository
+	repo repository.ScopeRepository
 }
 
-func NewScopeService(repo ScopeRepository) *ScopeService {
+func NewScopeService(repo repository.ScopeRepository) *ScopeService {
 	return &ScopeService{repo: repo}
 }
 

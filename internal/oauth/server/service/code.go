@@ -4,34 +4,18 @@ import (
 	"oauth-server-go/internal/oauth/authorization"
 	"oauth-server-go/internal/oauth/client"
 	"oauth-server-go/internal/oauth/server/pkg/gen"
+	"oauth-server-go/internal/oauth/server/repository"
 )
-
-// AuthCodeRepository 인가 코드 저장소
-type AuthCodeRepository interface {
-
-	// FindByValue 저장소에서 인가 코드를 조회한다.
-	//
-	// Returns:
-	//	 - *authorization.Code: 조회된 인가 코드
-	//	 - bool: 조회 성공 여부
-	FindByValue(cd string) (*authorization.Code, bool)
-
-	// Save 인가 코드를 저장소에 저장한다.
-	Save(*authorization.Code) error
-
-	// Delete 인가 코드를 저장소에서 삭제 한다.
-	Delete(*authorization.Code) error
-}
 
 // AuthCodeService 인가 코드 서비스
 //
 // OAuth2 인가 코드에 대한 관리 포인트를 제공하여
 // 새 인가 코드 생성 및 조회, 삭제 등을 작업한다.
 type AuthCodeService struct {
-	repo AuthCodeRepository
+	repo repository.AuthCodeRepository
 }
 
-func NewAuthCodeService(repo AuthCodeRepository) *AuthCodeService {
+func NewAuthCodeService(repo repository.AuthCodeRepository) *AuthCodeService {
 	return &AuthCodeService{repo: repo}
 }
 
