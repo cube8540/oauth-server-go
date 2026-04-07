@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"oauth-server-go/internal/oauth/scope"
 	"oauth-server-go/internal/oauth/server/repository"
 )
@@ -17,6 +18,6 @@ func NewScopeService(repo repository.ScopeRepository) *ScopeService {
 }
 
 // Retrieve 스코프들을 조회한다.
-func (srv *ScopeService) Retrieve(value ...string) []scope.Scope {
-	return srv.repo.FindByValue(value...)
+func (srv *ScopeService) Retrieve(ctx context.Context, value ...string) []scope.Scope {
+	return srv.repo.FindByValue(ctx, value...)
 }

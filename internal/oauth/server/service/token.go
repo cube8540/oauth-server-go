@@ -1,100 +1,122 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"oauth-server-go/internal/config/log"
+	"oauth-server-go/internal/oauth/authorization"
 	"oauth-server-go/internal/oauth/client"
 	oautherr "oauth-server-go/internal/oauth/errors"
 	"oauth-server-go/internal/oauth/server/repository"
 	"oauth-server-go/internal/oauth/token"
+	"oauth-server-go/internal/pkg/auth"
 )
 
-// TokenGranter 토큰 부여자 인터페이스
-type TokenGranter interface {
+type RetrieveAuthorizationCode func(ctx context.Context, code string) (*authorization.Code, bool, error)
 
-	// GenerateToken 주어진 클라이언트와 요청 정보를 이용하여 토큰을 발행한다.
-	GenerateToken(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error)
-}
-
-var (
-	// authorizationCodeGranter OAuth2 인가 코드 승인 방식을 구현한 토큰 부여자
-	authorizationCodeGranter TokenGranter
-
-	// resourceOwnerPasswordCredentialsGranter OAuth2 자원 소유자 패스워드 인증 승인 방식을 구현한 토큰 부여자
-	resourceOwnerPasswordCredentialsGranter TokenGranter
-
-	// clientCredentialsGranter 클라이언트 승인 방식을 구현한 토큰 부여자
-	clientCredentialsGranter TokenGranter
-
-	// refreshTokenGranter 리플레시 토큰 승인 방식을 구현한 토큰 부여자
-	refreshTokenGranter TokenGranter
-)
-
-func SetGlobalAuthorizationCodeGranter(g TokenGranter) {
-	authorizationCodeGranter = g
-}
-
-func SetGlobalResourceOwnerPasswordCredentialsGranter(g TokenGranter) {
-	resourceOwnerPasswordCredentialsGranter = g
-}
-
-func SetGlobalClientCredentialsGranter(g TokenGranter) {
-	clientCredentialsGranter = g
-}
-
-func SetGlobalRefreshTokenGranter(g TokenGranter) {
-	refreshTokenGranter = g
-}
-
-// ChooseTokenGranter 주어진 토큰 부여 타입에 따른 적절한 부여자를 반환한다.
-func ChooseTokenGranter(t token.GrantType) (TokenGranter, error) {
-	switch t {
-	case token.GrantTypeAuthorizationCode:
-		return authorizationCodeGranter, nil
-	case token.GrantTypePassword:
-		return resourceOwnerPasswordCredentialsGranter, nil
-	case token.GrantTypeClientCredentials:
-		return clientCredentialsGranter, nil
-	case token.GrantTypeRefreshToken:
-		return refreshTokenGranter, nil
-	default:
-		return nil, fmt.Errorf("%w: undefined grant type", oautherr.ErrInvalidRequest)
-	}
-}
+// GrantToken 신규 토큰을 발행한다.
+type GrantToken func(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error)
 
 // TokenIssuer 생성된 토큰을 저장소에 저장하는 서비스 구조체
 //
 // TokenGranter 를 통해 발급된 토큰을 저장소에 저장한다.
 type TokenIssuer struct {
-	repo    repository.TokenRepository
-	granter TokenGranter
+	Repository repository.TokenRepository
+
+	RetrieveAuthorizationCode RetrieveAuthorizationCode
+	AuthenticateResourceOwner auth.SimpleAuthenticate
+
+	GenerateAccessToken  token.GenerateToken
+	GenerateRefreshToken token.GenerateToken
 }
 
-func (srv *TokenIssuer) GenerateToken(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
-	accessToken, refreshToken, err := srv.granter.GenerateToken(c, request)
+func (srv *TokenIssuer) chooseGranter(ctx context.Context, t token.GrantType) (GrantToken, error) {
+	switch t {
+	case token.GrantTypeAuthorizationCode:
+		return func(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
+			authCodeRetriever := func(code string) (*authorization.Code, bool) {
+				cd, find, err := srv.RetrieveAuthorizationCode(ctx, code)
+				if err != nil {
+					log.Sugared().Errorf("error occurred during consume code(%s): %v", code, err)
+				}
+				return cd, find
+			}
+
+			granter := token.AuthorizationCodeGranter{
+				AccessTokenGenerator:      srv.GenerateAccessToken,
+				RefreshTokenGenerator:     srv.GenerateRefreshToken,
+				RetrieveAuthorizationCode: authCodeRetriever,
+			}
+
+			return granter.GenerateToken(c, request)
+		}, nil
+	case token.GrantTypeRefreshToken:
+		return func(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
+			refreshTokenRetriever := func(refreshToken string) (*token.RefreshToken, bool) {
+				return srv.Repository.FindRefreshTokenByValue(ctx, refreshToken)
+			}
+
+			granter := token.RefreshTokenGranter{
+				AccessTokenGenerator:  srv.GenerateAccessToken,
+				RefreshTokenGenerator: srv.GenerateRefreshToken,
+				RetrieveRefreshToken:  refreshTokenRetriever,
+				Rotation:              true,
+			}
+			return granter.GenerateToken(c, request)
+		}, nil
+	case token.GrantTypeClientCredentials:
+		return func(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
+			granter := token.ClientCredentialsGranter{
+				AccessTokenGenerator: srv.GenerateAccessToken,
+			}
+			act, err := granter.GenerateToken(c, request)
+			return act, nil, err
+		}, nil
+	case token.GrantTypePassword:
+		return func(c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
+			granter := token.ResourceOwnerPasswordCredentialsGranter{
+				Authenticate:          srv.AuthenticateResourceOwner,
+				AccessTokenGenerator:  srv.GenerateAccessToken,
+				RefreshTokenGenerator: srv.GenerateRefreshToken,
+			}
+			return granter.GenerateToken(c, request)
+		}, nil
+	default:
+		return nil, fmt.Errorf("%w: undefined grant type", oautherr.ErrInvalidRequest)
+	}
+}
+
+func (srv *TokenIssuer) Issue(ctx context.Context, c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error) {
+	granter, err := srv.chooseGranter(ctx, request.Type)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	err = srv.repo.Transaction(func(r repository.TokenRepository) error {
-		if err = r.SaveAccessToken(accessToken); err != nil {
+	accessToken, refreshToken, err := granter(c, request)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = srv.Repository.Transaction(ctx, func(r repository.TokenRepository) error {
+		if err = r.SaveAccessToken(ctx, accessToken); err != nil {
 			return fmt.Errorf("error occurred while saving access token: %w", err)
 		}
 
 		if refreshToken != nil {
-			if err = r.SaveRefreshToken(refreshToken); err != nil {
+			if err = r.SaveRefreshToken(ctx, refreshToken); err != nil {
 				return fmt.Errorf("error occurred while saving refresh token: %w", err)
 			}
 		}
 
 		if request.Type == token.GrantTypeRefreshToken {
-			storedRefreshToken, _ := r.FindRefreshTokenByValue(request.RefreshToken)
+			storedRefreshToken, _ := r.FindRefreshTokenByValue(ctx, request.RefreshToken)
 			storedAccessToken := storedRefreshToken.Token()
 
-			if err = srv.repo.DeleteRefreshToken(storedRefreshToken); err != nil {
+			if err = srv.Repository.DeleteRefreshToken(ctx, storedRefreshToken); err != nil {
 				return fmt.Errorf("error occurred while deleting refresh token: %w", err)
 			}
 
-			if err = srv.repo.DeleteAccessToken(storedAccessToken); err != nil {
+			if err = srv.Repository.DeleteAccessToken(ctx, storedAccessToken); err != nil {
 				return fmt.Errorf("error occurred while deleting access token: %w", err)
 			}
 		}
@@ -119,12 +141,12 @@ func NewTokenService(repo repository.TokenRepository) *TokenService {
 // Returns:
 //   - *token.Inspection: 조회된 토큰의 상세 정보
 //   - bool: 조회 성공 여부
-func (srv *TokenService) Inspection(c *client.Client, request *token.InspectionRequest) (*token.Inspection, bool, error) {
+func (srv *TokenService) Inspection(ctx context.Context, c *client.Client, request *token.InspectionRequest) (*token.Inspection, bool, error) {
 	var t any
 	if request.TokenTypeHint == token.TypeHintAccessToken {
-		t, _ = srv.repo.FindAccessTokenByValue(request.Token)
+		t, _ = srv.repo.FindAccessTokenByValue(ctx, request.Token)
 	} else if request.TokenTypeHint == token.TypeHintRefreshToken {
-		t, _ = srv.repo.FindRefreshTokenByValue(request.Token)
+		t, _ = srv.repo.FindRefreshTokenByValue(ctx, request.Token)
 	} else {
 		return nil, false, fmt.Errorf("%w: undefined token type hint", oautherr.ErrInvalidRequest)
 	}

@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"github.com/gin-gonic/gin"
 	"oauth-server-go/internal/config/log"
 	"oauth-server-go/internal/oauth/client"
@@ -15,7 +16,7 @@ type ClientAuthenticationProvider interface {
 
 	// Authenticate 주어진 아이디와 패스워드를 통해 클라이언트의 인증을 진행한다.
 	// 인증 완료시 인증된 클라이언트를 반환하며 실패시 에러를 반환한다.
-	Authenticate(id, secret string) (*client.Client, error)
+	Authenticate(ctx context.Context, id, secret string) (*client.Client, error)
 }
 
 // ClientBasicAuthenticateHandler HTTP Basic Authentication을 이용하여
@@ -26,7 +27,7 @@ func ClientBasicAuthenticateHandler(provider ClientAuthenticationProvider) gin.H
 		if !exists {
 			id, secret, ok := ctx.Request.BasicAuth()
 			if ok {
-				c, err := provider.Authenticate(id, secret)
+				c, err := provider.Authenticate(ctx.Request.Context(), id, secret)
 				if err != nil {
 					_ = ctx.Error(err)
 					ctx.Abort()
@@ -57,7 +58,7 @@ func ClientFormAuthenticationHandler(provider ClientAuthenticationProvider) gin.
 				return
 			}
 			if r.ID != "" {
-				c, err := provider.Authenticate(r.ID, r.Secret)
+				c, err := provider.Authenticate(ctx.Request.Context(), r.ID, r.Secret)
 				if err != nil {
 					_ = ctx.Error(err)
 					ctx.Abort()

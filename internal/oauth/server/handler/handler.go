@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-contrib/sessions"
@@ -13,7 +14,6 @@ import (
 	oautherr "oauth-server-go/internal/oauth/errors"
 	"oauth-server-go/internal/oauth/scope"
 	"oauth-server-go/internal/oauth/server/pkg/security"
-	"oauth-server-go/internal/oauth/server/service"
 	"oauth-server-go/internal/oauth/token"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/pkg/array"
@@ -34,7 +34,7 @@ type ClientRetriever interface {
 	// Returns:
 	//	 - *client.Client: 조회된 클라이언트
 	//	 - bool: 조회 성공 여부
-	Retrieve(id string) (*client.Client, bool)
+	Retrieve(ctx context.Context, id string) (*client.Client, bool)
 }
 
 // ScopeRetriever 스코프 검색기
@@ -42,7 +42,7 @@ type ClientRetriever interface {
 // OAuth2 요청 처리를 위해 요청한 스코프의 정보를 검색할 용도의 검색기 인터페이스
 type ScopeRetriever interface {
 	// Retrieve 스코프를 조회한다.
-	Retrieve(code ...string) []scope.Scope
+	Retrieve(ctx context.Context, code ...string) []scope.Scope
 }
 
 // AuthorizationCodeCreator 인가 코드 생성기
@@ -50,7 +50,7 @@ type ScopeRetriever interface {
 // 자원 소유자의 인가 승인 후 인가 코드 생성을 위한 인터페이스
 type AuthorizationCodeCreator interface {
 	// NewCode 새 인가 코드를 생성한다.
-	NewCode(c *client.Client, r *authorization.Request) (*authorization.Code, error)
+	NewCode(ctx context.Context, c *client.Client, r *authorization.Request) (*authorization.Code, error)
 }
 
 // AuthorizationApproveHandler 인가 요청 처리에 대한 핸들러 함수를 제공하는 구조체
@@ -68,9 +68,9 @@ func NewAuthorizationApproveHandler(authorizationCodeCreator AuthorizationCodeCr
 
 // Handle 자원 소유자의 인가 승인이 완료된 후 인가 요청에서 사용하였던 응답 방식에 따라
 // 적절한 인스턴스(인가 코드 혹은 토큰)을 생성하고 이를 반환한다.
-func (h *AuthorizationApproveHandler) Handle(c *client.Client, request *authorization.Request) (any, error) {
+func (h *AuthorizationApproveHandler) Handle(ctx context.Context, c *client.Client, request *authorization.Request) (any, error) {
 	if request.ResponseType == authorization.ResponseTypeCode {
-		return h.authorizationCodeCreator.NewCode(c, request)
+		return h.authorizationCodeCreator.NewCode(ctx, c, request)
 	} else if request.ResponseType == authorization.ResponseTypeToken {
 		tokenRequest := &token.Request{
 			Redirect: request.Redirect,
@@ -83,6 +83,12 @@ func (h *AuthorizationApproveHandler) Handle(c *client.Client, request *authoriz
 	}
 }
 
+// TokenIssuer 토큰 발행자
+type TokenIssuer interface {
+	// Issue 액세스 토큰 및 리플레시 토큰을 발행한다.
+	Issue(ctx context.Context, c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error)
+}
+
 // TokenInspector 토큰 상세 정보 검색기 인터페이스
 type TokenInspector interface {
 	// Inspection 토큰의 상세 정보를 조회한다.
@@ -90,11 +96,13 @@ type TokenInspector interface {
 	// Returns:
 	//	 - *token.Inspection: 조회된 토큰의 상세 정보
 	//	 - bool: 조회 성공 여부
-	Inspection(c *client.Client, request *token.InspectionRequest) (*token.Inspection, bool, error)
+	Inspection(ctx context.Context, c *client.Client, request *token.InspectionRequest) (*token.Inspection, bool, error)
 }
 
 // Handler OAuth2의 주요 엔드 포인트를 처리하는 핸들러 함수를 가지고 있는 구조체
 type Handler struct {
+	tokenIssuer TokenIssuer
+
 	clientRetriever ClientRetriever
 	scopeRetriever  ScopeRetriever
 
@@ -103,8 +111,9 @@ type Handler struct {
 	inspector TokenInspector
 }
 
-func NewHandler(clientRetriever ClientRetriever, scopeRetriever ScopeRetriever, approveHandler *AuthorizationApproveHandler, inspector TokenInspector) *Handler {
+func NewHandler(tokenIssuer TokenIssuer, clientRetriever ClientRetriever, scopeRetriever ScopeRetriever, approveHandler *AuthorizationApproveHandler, inspector TokenInspector) *Handler {
 	return &Handler{
+		tokenIssuer:     tokenIssuer,
 		clientRetriever: clientRetriever,
 		scopeRetriever:  scopeRetriever,
 		approveHandler:  approveHandler,
@@ -138,7 +147,8 @@ func (h *Handler) Authorize(ctx *gin.Context) error {
 		return NewOAuth2Error(oautherr.ErrInvalidRequest, "client_id is required")
 	}
 
-	clt, ok := h.clientRetriever.Retrieve(request.Client)
+	requestContext := ctx.Request.Context()
+	clt, ok := h.clientRetriever.Retrieve(requestContext, request.Client)
 	if !ok {
 		return NewOAuth2Error(oautherr.ErrInvalidClient, "invalid client")
 	}
@@ -164,7 +174,7 @@ func (h *Handler) Authorize(ctx *gin.Context) error {
 		return WrapAuthRequest(oautherr.ErrInvalidScope, "invalid scope", &request, callback)
 	}
 
-	scopes := h.scopeRetriever.Retrieve(requestScopes...)
+	scopes := h.scopeRetriever.Retrieve(requestContext, requestScopes...)
 
 	authentication, _ := web.RetrieveAuthentication(ctx)
 	request.Username = authentication.Username
@@ -199,7 +209,8 @@ func (h *Handler) Approve(ctx *gin.Context) error {
 		return NewOAuth2Error(oautherr.ErrInvalidRequest, "authorize request is not found")
 	}
 
-	clt, _ := h.clientRetriever.Retrieve(request.Client)
+	requestContext := ctx.Request.Context()
+	clt, _ := h.clientRetriever.Retrieve(requestContext, request.Client)
 	callback, _ := url.Parse(request.Redirect)
 
 	authentication, _ := web.RetrieveAuthentication(ctx)
@@ -214,7 +225,7 @@ func (h *Handler) Approve(ctx *gin.Context) error {
 	}
 	request.Scopes = scope.Join(approvedScopes)
 
-	src, err := h.approveHandler.Handle(clt, request)
+	src, err := h.approveHandler.Handle(requestContext, clt, request)
 	if err != nil {
 		return WrapAuthRequest(err, "error occurred during approve request", request, callback)
 	}
@@ -252,12 +263,7 @@ func (h *Handler) IssueToken(ctx *gin.Context) error {
 		return NewOAuth2Error(oautherr.ErrInvalidClient, "invalid client")
 	}
 
-	tokenGranter, err := service.ChooseTokenGranter(request.Type)
-	if err != nil {
-		return WrapTokenRequest(err, "invalid token grant type", &request)
-	}
-
-	accessToken, refreshToken, err := tokenGranter.GenerateToken(clt, &request)
+	accessToken, refreshToken, err := h.tokenIssuer.Issue(ctx.Request.Context(), clt, &request)
 	if err != nil {
 		return WrapTokenRequest(err, "error occurred during generate token", &request)
 	}
@@ -297,12 +303,13 @@ func (h *Handler) InspectToken(ctx *gin.Context) error {
 		return NewOAuth2Error(oautherr.ErrInvalidRequest, "undefined token type hint")
 	}
 
+	requestContext := ctx.Request.Context()
 	clt, exists := security.RetrieveClientAuthentication(ctx)
 	if !exists {
 		return NewOAuth2Error(oautherr.ErrInvalidClient, "invalid client")
 	}
 
-	inspection, ok, err := h.inspector.Inspection(clt, &request)
+	inspection, ok, err := h.inspector.Inspection(requestContext, clt, &request)
 	if err != nil {
 		log.Sugared().Errorf("error occurred during token inspection: %v", err)
 		return NewOAuth2Error(err, "error occurred during token inspection")

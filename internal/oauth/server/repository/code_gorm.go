@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"gorm.io/gorm"
@@ -16,9 +17,9 @@ import (
 // Returns:
 //   - *AuthorizationCode: 조회된 인가 코드 모델
 //   - bool: 조회 성공 여부
-func FindAuthCodeByValue(db *gorm.DB, value string) (*AuthorizationCode, bool) {
+func FindAuthCodeByValue(ctx context.Context, db *gorm.DB, value string) (*AuthorizationCode, bool) {
 	var cd AuthorizationCode
-	if err := db.Preload("Scopes").Where(&AuthorizationCode{Value: value}).First(&cd).Error; err != nil {
+	if err := db.WithContext(ctx).Preload("Scopes").Where(&AuthorizationCode{Value: value}).First(&cd).Error; err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			log.Sugared().Errorf("error occurred during select code(%s): %v", value, err)
 		}
@@ -28,19 +29,19 @@ func FindAuthCodeByValue(db *gorm.DB, value string) (*AuthorizationCode, bool) {
 }
 
 // SaveAuthCode Gorm을 이용하여 데이터베이스에 인가 코드를 저장한다.
-func SaveAuthCode(db *gorm.DB, code *AuthorizationCode) error {
-	return db.Omit("Scopes.*").Create(code).Error
+func SaveAuthCode(ctx context.Context, db *gorm.DB, code *AuthorizationCode) error {
+	return db.WithContext(ctx).Omit("Scopes.*").Create(code).Error
 }
 
 // DeleteAuthCode Gorm을 이용해 데이터베이스에서 인가 코드를 삭제한다.
-func DeleteAuthCode(db *gorm.DB, code *AuthorizationCode) error {
+func DeleteAuthCode(ctx context.Context, db *gorm.DB, code *AuthorizationCode) error {
 	// GORM Many2Many의 관계를 해제시 인스턴스의 연관 데이터가 초기화 되어 빈 슬라이스로 저장된다.
 	// 그럼으로 스코프를 임시로 저장하고 있다가 DELETE 쿼리 완료 후 인스턴스에 다시 스코프를 저장하여 인자의 무결성을 유지한다.
 	scopes := code.Scopes
-	if err := db.Model(code).Association("Scopes").Clear(); err != nil {
+	if err := db.WithContext(ctx).Model(code).Association("Scopes").Clear(); err != nil {
 		return fmt.Errorf("%w: error occurred during clear scopes(%s): %v", oautherr.ErrUnknown, code.Value, err)
 	}
-	if err := db.Delete(code).Error; err != nil {
+	if err := db.WithContext(ctx).Delete(code).Error; err != nil {
 		return fmt.Errorf("%w: error occurred during delete code(%s): %v", oautherr.ErrUnknown, code.Value, err)
 	}
 	code.Scopes = scopes
@@ -61,8 +62,8 @@ func NewAuthCodeGormBride(db *gorm.DB) *AuthCodeGormBride {
 // Returns:
 //   - *authorization.Code: 조회된 인가 코드 도메인 모델
 //   - bool: 조회 성공 여부
-func (b *AuthCodeGormBride) FindByValue(value string) (*authorization.Code, bool) {
-	if codeModel, ok := FindAuthCodeByValue(b.db, value); ok {
+func (b *AuthCodeGormBride) FindByValue(ctx context.Context, value string) (*authorization.Code, bool) {
+	if codeModel, ok := FindAuthCodeByValue(ctx, b.db, value); ok {
 		return codeModel.Domain(), true
 	} else {
 		return nil, false
@@ -70,8 +71,8 @@ func (b *AuthCodeGormBride) FindByValue(value string) (*authorization.Code, bool
 }
 
 // Save Gorm을 이용해 데이터베이스에 인가 코드를 저장한다.
-func (b *AuthCodeGormBride) Save(cd *authorization.Code) error {
-	clientModel, ok := FindClientByClientID(b.db, cd.Client().Id())
+func (b *AuthCodeGormBride) Save(ctx context.Context, cd *authorization.Code) error {
+	clientModel, ok := FindClientByClientID(ctx, b.db, cd.Client().Id())
 	if !ok {
 		return fmt.Errorf("%w: client(%s) not found", oautherr.ErrInvalidClient, cd.Client().Id())
 	}
@@ -93,13 +94,13 @@ func (b *AuthCodeGormBride) Save(cd *authorization.Code) error {
 		ExpiredAt:           cd.End(),
 	}
 
-	return SaveAuthCode(b.db, authCodeModel)
+	return SaveAuthCode(ctx, b.db, authCodeModel)
 }
 
 // Delete Gorm을 이용하여 데이터베이스에서 인가 코드를 삭제한다.
-func (b *AuthCodeGormBride) Delete(auth *authorization.Code) error {
-	if authCodeModel, ok := FindAuthCodeByValue(b.db, auth.Value()); ok {
-		return DeleteAuthCode(b.db, authCodeModel)
+func (b *AuthCodeGormBride) Delete(ctx context.Context, auth *authorization.Code) error {
+	if authCodeModel, ok := FindAuthCodeByValue(ctx, b.db, auth.Value()); ok {
+		return DeleteAuthCode(ctx, b.db, authCodeModel)
 	} else {
 		return fmt.Errorf("%w: authoziation code(%s) not found", oautherr.ErrUnknown, auth.Value())
 	}

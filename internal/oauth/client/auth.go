@@ -5,15 +5,12 @@ import (
 	oautherr "oauth-server-go/internal/oauth/errors"
 )
 
-// Retriever OAuth2 클라이언트 검색 인터페이스
-type Retriever interface {
-	// FindByClientID 인자로 받은 클라이언트 아이디로 OAuth2 클라이언트를 검색하여 반환한다.
-	//
-	// Returns:
-	//	 - *Client: 클라이언트
-	//	 - bool: 조회 성공 여부
-	FindByClientID(clientID string) (*Client, bool)
-}
+// Retrieve 인자로 받은 클라이언트 아이디로 OAuth2 클라이언트를 검색하여 반환한다.
+//
+// Returns:
+//   - *Client: 클라이언트
+//   - bool: 조회 성공 여부
+type Retrieve func(id string) (*Client, bool)
 
 // CompareSecret 클라이언트 인증을 위한 패스워드 비교 함수
 //
@@ -23,11 +20,11 @@ type CompareSecret func(source, input string) (bool, error)
 
 // AuthenticationProvider 클라이언트 인증을 제공하는 구조체
 type AuthenticationProvider struct {
-	retriever Retriever
+	retriever Retrieve
 	compare   CompareSecret
 }
 
-func NewAuthenticationProvider(retriever Retriever, compare CompareSecret) *AuthenticationProvider {
+func NewAuthenticationProvider(retriever Retrieve, compare CompareSecret) *AuthenticationProvider {
 	return &AuthenticationProvider{retriever: retriever, compare: compare}
 }
 
@@ -38,7 +35,7 @@ func (a *AuthenticationProvider) Authenticate(id, secret string) (*Client, error
 		return nil, fmt.Errorf("%w: id", oautherr.ErrMissingParameter)
 	}
 
-	c, ok := a.retriever.FindByClientID(id)
+	c, ok := a.retriever(id)
 	if !ok {
 		return nil, fmt.Errorf("%w: client could not find: %s", oautherr.ErrInvalidClient, id)
 	}

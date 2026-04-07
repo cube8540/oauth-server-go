@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"oauth-server-go/internal/oauth/authorization"
 	"oauth-server-go/internal/oauth/client"
 	"oauth-server-go/internal/oauth/server/pkg/gen"
@@ -24,12 +25,12 @@ func NewAuthCodeService(repo repository.AuthCodeRepository) *AuthCodeService {
 // Parameters:
 //   - c: 새 인가 코드를 생성을 요청한 클라이언트
 //   - request: 인가 코드 요청 전문
-func (srv *AuthCodeService) NewCode(c *client.Client, request *authorization.Request) (*authorization.Code, error) {
+func (srv *AuthCodeService) NewCode(ctx context.Context, c *client.Client, request *authorization.Request) (*authorization.Code, error) {
 	newCode := authorization.NewCode(c, gen.GenerateRandomUUID)
 	if err := newCode.CopyFrom(request); err != nil {
 		return nil, err
 	}
-	if err := srv.repo.Save(newCode); err != nil {
+	if err := srv.repo.Save(ctx, newCode); err != nil {
 		return nil, err
 	}
 	return newCode, nil
@@ -41,12 +42,12 @@ func (srv *AuthCodeService) NewCode(c *client.Client, request *authorization.Req
 //   - *authorization.Code: 조회/삭제된 인가 코드
 //   - bool: 조회 성공 여부
 //   - error: 삭제 중 발생한 에러
-func (srv *AuthCodeService) Consume(cd string) (*authorization.Code, bool, error) {
-	code, ok := srv.repo.FindByValue(cd)
+func (srv *AuthCodeService) Consume(ctx context.Context, cd string) (*authorization.Code, bool, error) {
+	code, ok := srv.repo.FindByValue(ctx, cd)
 	if !ok {
 		return nil, false, nil
 	}
-	if err := srv.repo.Delete(code); err != nil {
+	if err := srv.repo.Delete(ctx, code); err != nil {
 		return nil, false, err
 	}
 	return code, true, nil

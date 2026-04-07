@@ -10,7 +10,7 @@ import (
 // gin 컨텍스트에 등록할 키 상수
 const (
 	// KeyAuthentication 인증 정보를 등록할 때 사용할 키
-	KeyAuthentication = "web/security/Authentication"
+	KeyAuthentication = "middleware/security/Authenticate"
 )
 
 // Authentication 인증 정보

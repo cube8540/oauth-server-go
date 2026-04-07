@@ -6,6 +6,7 @@ import (
 	"oauth-server-go/internal/oauth/client"
 	oautherr "oauth-server-go/internal/oauth/errors"
 	"oauth-server-go/internal/oauth/scope"
+	"oauth-server-go/internal/pkg/auth"
 	"oauth-server-go/pkg/period"
 	"testing"
 	"time"
@@ -277,7 +278,11 @@ func TestAuthorizationCodeGrant_GenerateToken(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			granter := NewAuthorizationCodeGrant(tc.accessTokenGenerator, tc.refreshTokenGenerator, tc.retrieveAuthorizationCode)
+			granter := AuthorizationCodeGranter{
+				AccessTokenGenerator:      tc.accessTokenGenerator,
+				RefreshTokenGenerator:     tc.refreshTokenGenerator,
+				RetrieveAuthorizationCode: tc.retrieveAuthorizationCode,
+			}
 			accessToken, refreshToken, err := granter.GenerateToken(tc.client, tc.request)
 			if tc.grantExceptCase.err != nil {
 				assert.ErrorIs(t, err, tc.grantExceptCase.err)
@@ -380,7 +385,7 @@ func TestImplicitGrant_GenerateToken(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			granter := ImplicitGrant{accessTokenGenerator: generateTestAccessToken}
+			granter := ImplicitGranter{accessTokenGenerator: generateTestAccessToken}
 			accessToken, err := granter.GenerateToken(tc.client, tc.request)
 			if tc.grantExceptCase.err != nil {
 				assert.ErrorIs(t, err, tc.grantExceptCase.err)
@@ -408,7 +413,7 @@ type resourceOwnerPasswordCredentialsGrantTestCase struct {
 	grantExceptCase
 
 	// authenticate 자원 소유자 인증 함수
-	authenticate AuthenticateResourceOwner
+	authenticate auth.SimpleAuthenticate
 
 	// refreshTokenGenerator 리플레시 토큰 발급 함수
 	refreshTokenGenerator GenerateToken
@@ -532,10 +537,10 @@ func TestResourceOwnerPasswordCredentialsGrant_GenerateToken(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			granter := ResourceOwnerPasswordCredentialsGrant{
-				authentication:        tc.authenticate,
-				accessTokenGenerator:  tc.accessTokenGenerator,
-				refreshTokenGenerator: tc.refreshTokenGenerator,
+			granter := ResourceOwnerPasswordCredentialsGranter{
+				Authenticate:          tc.authenticate,
+				AccessTokenGenerator:  tc.accessTokenGenerator,
+				RefreshTokenGenerator: tc.refreshTokenGenerator,
 			}
 
 			accessToken, refreshToken, err := granter.GenerateToken(tc.client, tc.request)
@@ -630,7 +635,7 @@ func TestClientCredentialsGrant_GenerateToken(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			granter := ClientCredentialsGrant{accessTokenGenerator: tc.accessTokenGenerator}
+			granter := ClientCredentialsGranter{AccessTokenGenerator: tc.accessTokenGenerator}
 			accessToken, err := granter.GenerateToken(tc.client, tc.request)
 			if tc.grantExceptCase.err != nil {
 				assert.ErrorIs(t, err, tc.grantExceptCase.err)
@@ -834,11 +839,11 @@ func TestRefreshTokenGrant_GenerateToken(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			granter := RefreshTokenGrant{
-				accessTokenGenerator:  tc.accessTokenGenerator,
-				refreshTokenGenerator: tc.refreshTokenGenerator,
-				retrieveRefreshToken:  tc.refreshTokenRetriever,
-				rotation:              tc.rotation,
+			granter := RefreshTokenGranter{
+				AccessTokenGenerator:  tc.accessTokenGenerator,
+				RefreshTokenGenerator: tc.refreshTokenGenerator,
+				RetrieveRefreshToken:  tc.refreshTokenRetriever,
+				Rotation:              tc.rotation,
 			}
 
 			accessToken, refreshToken, err := granter.GenerateToken(tc.client, tc.request)

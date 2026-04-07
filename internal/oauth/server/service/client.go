@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"oauth-server-go/internal/oauth/client"
 	"oauth-server-go/internal/oauth/server/repository"
 )
@@ -21,6 +22,7 @@ func NewClientService(repo repository.ClientRepository) *ClientService {
 // Returns:
 //   - *client.Client: 조회된 클라이언트
 //   - bool: 조회 성공 여부
-func (srv *ClientService) Retrieve(clientID string) (*client.Client, bool) {
-	return srv.repo.FindByClientID(clientID)
+func (srv *ClientService) Retrieve(ctx context.Context, clientID string) (*client.Client, bool) {
+	cacheContext := repository.WithClientCaching(ctx)
+	return srv.repo.FindByClientID(cacheContext, clientID)
 }

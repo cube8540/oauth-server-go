@@ -6,6 +6,7 @@ import (
 	"oauth-server-go/internal/oauth/client"
 	oautherr "oauth-server-go/internal/oauth/errors"
 	"oauth-server-go/internal/oauth/scope"
+	"oauth-server-go/internal/pkg/auth"
 	"oauth-server-go/pkg/array"
 )
 
@@ -16,36 +17,36 @@ import (
 //   - bool: 조회 성공 여부
 type RetrieveAuthorizationCode func(code string) (*authorization.Code, bool)
 
-// AuthorizationCodeGrant OAuth2 인가 코드 승인 방식
-type AuthorizationCodeGrant struct {
-	// accessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
+// AuthorizationCodeGranter OAuth2 인가 코드 승인 방식
+type AuthorizationCodeGranter struct {
+	// AccessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
 	// 엑세스 토큰의 실제 토큰값을 생성하는데 사용한다.
-	accessTokenGenerator GenerateToken
+	AccessTokenGenerator GenerateToken
 
-	// refreshTokenGenerator 텍스트 형태의 랜덤 문자열 토큰을 생성하는 함수
+	// RefreshTokenGenerator 텍스트 형태의 랜덤 문자열 토큰을 생성하는 함수
 	// 리플레시 토큰의 실제 토큰값을 생성하는데 사용한다.
-	refreshTokenGenerator GenerateToken
+	RefreshTokenGenerator GenerateToken
 
-	// retrieveAuthorizationCode 인가 코드를 조회 하는 함수
-	retrieveAuthorizationCode RetrieveAuthorizationCode
+	// RetrieveAuthorizationCode 인가 코드를 조회 하는 함수
+	RetrieveAuthorizationCode RetrieveAuthorizationCode
 }
 
 // NewAuthorizationCodeGrant 새로운 인가 코드 승인 방식 인스턴스를 생성한다.
-func NewAuthorizationCodeGrant(tokenGenerator GenerateToken, refreshTokenGenerator GenerateToken, codeRetriever RetrieveAuthorizationCode) *AuthorizationCodeGrant {
-	return &AuthorizationCodeGrant{
-		accessTokenGenerator:      tokenGenerator,
-		refreshTokenGenerator:     refreshTokenGenerator,
-		retrieveAuthorizationCode: codeRetriever,
+func NewAuthorizationCodeGrant(tokenGenerator GenerateToken, refreshTokenGenerator GenerateToken, codeRetriever RetrieveAuthorizationCode) *AuthorizationCodeGranter {
+	return &AuthorizationCodeGranter{
+		AccessTokenGenerator:      tokenGenerator,
+		RefreshTokenGenerator:     refreshTokenGenerator,
+		RetrieveAuthorizationCode: codeRetriever,
 	}
 }
 
 // GenerateToken 인가 코드를 검증하고 엑세스 토큰과 리플레시 토큰을 발급한다.
-func (srv *AuthorizationCodeGrant) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
+func (srv *AuthorizationCodeGranter) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
 	if request.Code == "" {
 		return nil, nil, fmt.Errorf("%w: code", oautherr.ErrMissingParameter)
 	}
 
-	authCode, ok := srv.retrieveAuthorizationCode(request.Code)
+	authCode, ok := srv.RetrieveAuthorizationCode(request.Code)
 	if !ok {
 		return nil, nil, fmt.Errorf("%w: authoriation code is not found", oautherr.ErrInvalidRequest)
 	}
@@ -66,11 +67,11 @@ func (srv *AuthorizationCodeGrant) GenerateToken(c *client.Client, request *Requ
 		return nil, nil, fmt.Errorf("%w: mismatch code_verifier", oautherr.ErrInvalidRequest)
 	}
 
-	token := New(c, srv.accessTokenGenerator)
+	token := New(c, srv.AccessTokenGenerator)
 	token.ApplyAuthorizationCode(authCode)
 
 	if c.T() == client.TypeConfidential {
-		return token, NewRefreshToken(token, srv.refreshTokenGenerator), nil
+		return token, NewRefreshToken(token, srv.RefreshTokenGenerator), nil
 	} else {
 		return token, nil, nil
 	}
@@ -106,33 +107,29 @@ func (srv *ImplicitGrant) GenerateToken(c *client.Client, request *Request) (*Ac
 	return token, nil
 }
 
-// AuthenticateResourceOwner 자원 소유자 인증 함수
-// 자원 소유자의 식별자(아이디)와 패스워드를 받아 인증을 수행하고 인증 완료시 true를 반환한다.
-type AuthenticateResourceOwner func(username, password string) (bool, error)
+// ResourceOwnerPasswordCredentialsGranter 자원 소유자 비밀번호 자격 증명 승인 방식
+type ResourceOwnerPasswordCredentialsGranter struct {
+	// Authenticate 자원 소유자의 인증을 수행하는 함수
+	Authenticate auth.SimpleAuthenticate
 
-// ResourceOwnerPasswordCredentialsGrant 자원 소유자 비밀번호 자격 증명 승인 방식
-type ResourceOwnerPasswordCredentialsGrant struct {
-	// authentication 자원 소유자의 인증을 수행하는 함수
-	authentication AuthenticateResourceOwner
-
-	// accessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
+	// AccessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
 	// 엑세스 토큰의 실제 토큰값을 생성하는데 사용한다.
-	accessTokenGenerator GenerateToken
+	AccessTokenGenerator GenerateToken
 
-	// refreshTokenGenerator 텍스트 형태의 랜덤 문자열 토큰을 생성하는 함수
+	// RefreshTokenGenerator 텍스트 형태의 랜덤 문자열 토큰을 생성하는 함수
 	// 리플레시 토큰의 실제 토큰값을 생성하는데 사용한다.
-	refreshTokenGenerator GenerateToken
+	RefreshTokenGenerator GenerateToken
 }
 
 // GenerateToken 자원 소유자의 식별자(아이디)와 패스워드를 가지고 인증을 진행하고 인증 성공시 새로운 엑세스 토큰을 발급한다.
-func (srv *ResourceOwnerPasswordCredentialsGrant) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
+func (srv *ResourceOwnerPasswordCredentialsGranter) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
 	if request.Username == "" || request.Password == "" {
 		return nil, nil, fmt.Errorf("%w: username or password is required", oautherr.ErrMissingParameter)
 	}
 
 	// 자원 소유자 인증 진행
-	if auth, err := srv.authentication(request.Username, request.Password); err != nil || !auth {
-		msg := "resource owner failed authentication"
+	if ok, err := srv.Authenticate(request.Username, request.Password); err != nil || !ok {
+		msg := "resource owner failed Authenticate"
 		if err != nil {
 			msg = fmt.Sprintf("%s (%v)", msg, err)
 		}
@@ -144,25 +141,25 @@ func (srv *ResourceOwnerPasswordCredentialsGrant) GenerateToken(c *client.Client
 		return nil, nil, oautherr.ErrInvalidScope
 	}
 
-	token := New(c, srv.accessTokenGenerator)
+	token := New(c, srv.AccessTokenGenerator)
 	token.ApplyResourceOwnerInfo(request.Username, scopes)
 
 	if c.T() == client.TypeConfidential {
-		return token, NewRefreshToken(token, srv.refreshTokenGenerator), nil
+		return token, NewRefreshToken(token, srv.RefreshTokenGenerator), nil
 	} else {
 		return token, nil, nil
 	}
 }
 
-// ClientCredentialsGrant 클라이언트 자격 증명 방식
-type ClientCredentialsGrant struct {
-	// accessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
+// ClientCredentialsGranter 클라이언트 자격 증명 방식
+type ClientCredentialsGranter struct {
+	// AccessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
 	// 엑세스 토큰의 실제 토큰값을 생성하는데 사용한다.
-	accessTokenGenerator GenerateToken
+	AccessTokenGenerator GenerateToken
 }
 
 // GenerateToken 클라이언트 자격 증명을 이용하여 새 엑세스 토큰을 발급한다.
-func (srv *ClientCredentialsGrant) GenerateToken(c *client.Client, request *Request) (*AccessToken, error) {
+func (srv *ClientCredentialsGranter) GenerateToken(c *client.Client, request *Request) (*AccessToken, error) {
 	// 비공개 클라이언트만 자격증명을 이용한 토큰 발급 가능
 	if c.T() != client.TypeConfidential {
 		return nil, fmt.Errorf("%w: public client", oautherr.ErrInvalidClient)
@@ -173,7 +170,7 @@ func (srv *ClientCredentialsGrant) GenerateToken(c *client.Client, request *Requ
 		return nil, oautherr.ErrInvalidScope
 	}
 
-	token := New(c, srv.accessTokenGenerator)
+	token := New(c, srv.AccessTokenGenerator)
 	// 자원 소유자가 없음으로 공백("")을 저장한다.
 	token.ApplyResourceOwnerInfo("", scopes)
 
@@ -187,48 +184,30 @@ func (srv *ClientCredentialsGrant) GenerateToken(c *client.Client, request *Requ
 //   - bool: 조회 성공 여부
 type RetrieveRefreshToken func(refreshToken string) (*RefreshToken, bool)
 
-// RefreshTokenGrant 리플레시 토큰 승인 방식
-type RefreshTokenGrant struct {
-	// accessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
+// RefreshTokenGranter 리플레시 토큰 승인 방식
+type RefreshTokenGranter struct {
+	// AccessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
 	// 엑세스 토큰의 실제 토큰값을 생성하는데 사용한다.
-	accessTokenGenerator GenerateToken
+	AccessTokenGenerator GenerateToken
 
-	// refreshTokenGenerator 텍스트 형태의 랜덤 문자열 토큰을 생성하는 함수
+	// RefreshTokenGenerator 텍스트 형태의 랜덤 문자열 토큰을 생성하는 함수
 	// 리플레시 토큰의 실제 토큰값을 생성하는데 사용한다.
-	refreshTokenGenerator GenerateToken
+	RefreshTokenGenerator GenerateToken
 
-	// retrieveRefreshToken 리플레시 토큰을 조회하는 함수
-	retrieveRefreshToken RetrieveRefreshToken
+	// RetrieveRefreshToken 리플레시 토큰을 조회하는 함수
+	RetrieveRefreshToken RetrieveRefreshToken
 
-	// rotation 신규 토큰 발행 후 기존의 리플래시 토큰을 재사용할지 여부
-	rotation bool
-}
-
-func NewRefreshTokenGrant(tokenGenerator GenerateToken, refreshTokenGenerator GenerateToken, refreshTokenRetriever RetrieveRefreshToken) *RefreshTokenGrant {
-	return &RefreshTokenGrant{
-		accessTokenGenerator:  tokenGenerator,
-		refreshTokenGenerator: refreshTokenGenerator,
-		retrieveRefreshToken:  refreshTokenRetriever,
-		rotation:              true,
-	}
-}
-
-func NewRefreshTokenGrantWithoutRotation(tokenGenerator GenerateToken, refreshTokenRetriever RetrieveRefreshToken) *RefreshTokenGrant {
-	return &RefreshTokenGrant{
-		accessTokenGenerator:  tokenGenerator,
-		refreshTokenGenerator: nil,
-		retrieveRefreshToken:  refreshTokenRetriever,
-		rotation:              false,
-	}
+	// Rotation 신규 토큰 발행 후 기존의 리플래시 토큰을 재사용할지 여부
+	Rotation bool
 }
 
 // GenerateToken 리플레시 토큰을 이용하여 새 엑세스 토큰과 리플레시 토큰을 생성한다.
-func (srv *RefreshTokenGrant) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
+func (srv *RefreshTokenGranter) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
 	if request.RefreshToken == "" {
 		return nil, nil, fmt.Errorf("%w: refresh_token is required", oautherr.ErrMissingParameter)
 	}
 
-	storedRefreshToken, ok := srv.retrieveRefreshToken(request.RefreshToken)
+	storedRefreshToken, ok := srv.RetrieveRefreshToken(request.RefreshToken)
 	if !ok {
 		return nil, nil, fmt.Errorf("%w: token(%s) could not find", oautherr.ErrInvalidRequest, request.RefreshToken)
 	}
@@ -253,12 +232,12 @@ func (srv *RefreshTokenGrant) GenerateToken(c *client.Client, request *Request) 
 		return nil, nil, oautherr.ErrInvalidScope
 	}
 
-	token := New(c, srv.accessTokenGenerator)
+	token := New(c, srv.AccessTokenGenerator)
 	token.ApplyResourceOwnerInfo(expiredToken.Username(), scopes)
 
 	var refreshToken *RefreshToken
-	if srv.refreshTokenGenerator != nil && srv.rotation {
-		refreshToken = NewRefreshToken(token, srv.refreshTokenGenerator)
+	if srv.RefreshTokenGenerator != nil && srv.Rotation {
+		refreshToken = NewRefreshToken(token, srv.RefreshTokenGenerator)
 	} else {
 		storedRefreshToken.token = token
 		refreshToken = storedRefreshToken

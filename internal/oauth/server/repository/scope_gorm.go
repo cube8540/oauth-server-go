@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"gorm.io/gorm"
 	"oauth-server-go/internal/config/log"
 	"oauth-server-go/internal/oauth/scope"
@@ -12,9 +13,9 @@ import (
 var dummy = Scope{}
 
 // FindScopeByValue Gorm을 이용하여 데이터베이스에서 스코프들을 조회해 반환한다.
-func FindScopeByValue(db *gorm.DB, value ...string) []Scope {
+func FindScopeByValue(ctx context.Context, db *gorm.DB, value ...string) []Scope {
 	var scopes []Scope
-	if err := db.Where(dummy.TableName()+".code IN (?)", value).Find(&scopes).Error; err != nil {
+	if err := db.WithContext(ctx).Where(dummy.TableName()+".code IN (?)", value).Find(&scopes).Error; err != nil {
 		log.Sugared().Errorf("error occurred during select scope(%v): %v", value, err)
 	}
 	return scopes
@@ -30,8 +31,8 @@ func NewScopeGormBridge(db *gorm.DB) *ScopeGormBridge {
 }
 
 // FindByValue 데이터베이스에서 스코프들을 조회한다.
-func (b *ScopeGormBridge) FindByValue(value ...string) []scope.Scope {
-	scopes := FindScopeByValue(b.db, value...)
+func (b *ScopeGormBridge) FindByValue(ctx context.Context, value ...string) []scope.Scope {
+	scopes := FindScopeByValue(ctx, b.db, value...)
 	return array.Map(scopes, func(s Scope) scope.Scope {
 		return scope.Scope{
 			Code: s.Code,

@@ -43,8 +43,8 @@ func main() {
 
 	route := gin.Default()
 	route.LoadHTMLGlob("web/template/*")
-	route.Static("/css", "./web/css")
-	route.Static("/js", "./web/js")
+	route.Static("/css", "./middleware/css")
+	route.Static("/js", "./middleware/js")
 
 	route.Use(web.ErrorHandler)
 	route.Use(sessions.Sessions(applicationSessionID, sessionStore))
@@ -54,9 +54,10 @@ func main() {
 		db: gormDB,
 	}
 
-	user.APIRouting(route, &env)
+	userExt := user.APIRouting(route, &env)
 	user.StaticRouting(route)
 
+	oauthserver.SetResourceOwnerAuthenticate(userExt.Authenticate)
 	oauthserver.OAuth2RFCRouting(route, &env)
 
 	_ = route.Run(c.Port)
