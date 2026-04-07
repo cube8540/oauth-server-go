@@ -31,15 +31,6 @@ type AuthorizationCodeGranter struct {
 	RetrieveAuthorizationCode RetrieveAuthorizationCode
 }
 
-// NewAuthorizationCodeGrant 새로운 인가 코드 승인 방식 인스턴스를 생성한다.
-func NewAuthorizationCodeGrant(tokenGenerator GenerateToken, refreshTokenGenerator GenerateToken, codeRetriever RetrieveAuthorizationCode) *AuthorizationCodeGranter {
-	return &AuthorizationCodeGranter{
-		AccessTokenGenerator:      tokenGenerator,
-		RefreshTokenGenerator:     refreshTokenGenerator,
-		RetrieveAuthorizationCode: codeRetriever,
-	}
-}
-
 // GenerateToken 인가 코드를 검증하고 엑세스 토큰과 리플레시 토큰을 발급한다.
 func (srv *AuthorizationCodeGranter) GenerateToken(c *client.Client, request *Request) (*AccessToken, *RefreshToken, error) {
 	if request.Code == "" {
