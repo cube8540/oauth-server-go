@@ -10,6 +10,7 @@ import (
 	"oauth-server-go/internal/oauth/server/repository"
 	"oauth-server-go/internal/oauth/token"
 	"oauth-server-go/internal/pkg/auth"
+	"oauth-server-go/internal/pkg/web"
 )
 
 type RetrieveAuthorizationCode func(ctx context.Context, code string) (*authorization.Code, bool, error)
@@ -170,4 +171,22 @@ func (srv *TokenService) Inspection(ctx context.Context, c *client.Client, reque
 	}
 
 	return inspection, true, nil
+}
+
+func (srv *TokenService) GetIssuedTokens(ctx context.Context, username string) []token.AccessToken {
+	return srv.repo.FindAccessTokenByUsername(ctx, username)
+}
+
+func (srv *TokenService) DeleteToken(ctx context.Context, owner *web.Authentication, t string) error {
+	accessToken, ok := srv.repo.FindAccessTokenByValue(ctx, t)
+	if !ok {
+		return fmt.Errorf("%w: access token not found", oautherr.ErrInvalidRequest)
+	}
+	if owner.Username != accessToken.Username() {
+		return fmt.Errorf("%w: invalid user", oautherr.ErrUnauthorized)
+	}
+	if err := srv.repo.DeleteAccessToken(ctx, accessToken); err != nil {
+		return fmt.Errorf("error occurred while deleting access token: %w", err)
+	}
+	return nil
 }

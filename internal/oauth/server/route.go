@@ -28,19 +28,6 @@ type Environment interface {
 	GetDB() *gorm.DB
 }
 
-type ClientAuthProvider struct {
-	clientRepository repository.ClientRepository
-}
-
-func (srv *ClientAuthProvider) Authenticate(ctx context.Context, id, secret string) (*client.Client, error) {
-	retriever := func(id string) (*client.Client, bool) {
-		return srv.clientRepository.FindByClientID(ctx, id)
-	}
-
-	authProvider := client.NewAuthenticationProvider(retriever, hash.Compare)
-	return authProvider.Authenticate(id, secret)
-}
-
 func OAuth2RFCRouting(route *gin.Engine, env Environment) {
 	repositoryCachingContext := func(c context.Context) context.Context {
 		cacheContext := repository.WithClientCaching(c)
@@ -58,16 +45,24 @@ func OAuth2RFCRouting(route *gin.Engine, env Environment) {
 	authCodeService := service.NewAuthCodeService(authCodeRepository)
 	tokenService := service.NewTokenService(tokenRepository)
 
-	approveHandler := handler.NewAuthorizationApproveHandler(authCodeService, token.NewImplicitGrant(gen.GenerateRandomUUID))
-
-	issuer := service.TokenIssuer{
-		Repository:                tokenRepository,
-		RetrieveAuthorizationCode: authCodeService.Consume,
-		AuthenticateResourceOwner: resourceOwnerAuthenticate,
-		GenerateAccessToken:       gen.GenerateRandomUUID,
-		GenerateRefreshToken:      gen.GenerateRandomUUID,
+	rfcHandler := handler.Handler{
+		TokenIssuer: &service.TokenIssuer{
+			Repository:                tokenRepository,
+			RetrieveAuthorizationCode: authCodeService.Consume,
+			AuthenticateResourceOwner: resourceOwnerAuthenticate,
+			GenerateAccessToken:       gen.GenerateRandomUUID,
+			GenerateRefreshToken:      gen.GenerateRandomUUID,
+		},
+		TokenService:    tokenService,
+		ClientService:   clientService,
+		ScopeService:    scopeService,
+		AuthCodeService: authCodeService,
+		ImplicitGranter: token.NewImplicitGrant(gen.GenerateRandomUUID),
 	}
-	rfcHandler := handler.NewHandler(&issuer, clientService, scopeService, approveHandler, tokenService)
+
+	managementHandler := handler.ManagementHandler{
+		TokenService: tokenService,
+	}
 
 	group := route.Group("/oauth/auth")
 	group.Use(middleware.NoCache)
@@ -80,11 +75,23 @@ func OAuth2RFCRouting(route *gin.Engine, env Environment) {
 	authorizationEndpoint.GET("", web.NewHTTPHandler(rfcHandler.Authorize))
 	authorizationEndpoint.POST("", web.NewHTTPHandler(rfcHandler.Approve))
 
-	clientAuthProvider := ClientAuthProvider{clientRepository: clientRepository}
+	clientAuthProvider := func(ctx context.Context, id, secret string) (*client.Client, error) {
+		retriever := func(id string) (*client.Client, bool) {
+			return clientRepository.FindByClientID(ctx, id)
+		}
+		authProvider := client.NewAuthenticationProvider(retriever, hash.Compare)
+		return authProvider.Authenticate(id, secret)
+	}
+
 	tokenIssueEndpoint := group.Group("/token")
-	tokenIssueEndpoint.Use(security.ClientBasicAuthenticateHandler(&clientAuthProvider))
-	tokenIssueEndpoint.Use(security.ClientFormAuthenticationHandler(&clientAuthProvider))
+	tokenIssueEndpoint.Use(security.ClientBasicAuthenticateHandler(clientAuthProvider))
+	tokenIssueEndpoint.Use(security.ClientFormAuthenticationHandler(clientAuthProvider))
 	tokenIssueEndpoint.Use(security.ClientRequiredAuthenticationHandler)
 	tokenIssueEndpoint.POST("", web.NewHTTPHandler(rfcHandler.IssueToken))
 	tokenIssueEndpoint.POST("/introspect", web.NewHTTPHandler(rfcHandler.InspectToken))
+
+	managementGroup := route.Group("/oauth/manage")
+	managementGroup.Use(web.RequestProtect(web.AccessDeniedRedirectHandler("/users/auth")))
+	managementGroup.GET("/tokens", web.NewHTTPHandler(managementHandler.TokenManagement))
+	managementGroup.DELETE("/tokens/:tokenValue", web.NewHTTPHandler(managementHandler.DeleteToken))
 }

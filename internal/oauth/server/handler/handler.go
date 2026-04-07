@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -14,9 +15,11 @@ import (
 	oautherr "oauth-server-go/internal/oauth/errors"
 	"oauth-server-go/internal/oauth/scope"
 	"oauth-server-go/internal/oauth/server/pkg/security"
+	"oauth-server-go/internal/oauth/server/service"
 	"oauth-server-go/internal/oauth/token"
 	"oauth-server-go/internal/pkg/web"
 	"oauth-server-go/pkg/array"
+	"time"
 )
 
 // sessionKeyOriginAuthRequest 인가요청을 세션에 저장할 때 사용하는 키
@@ -25,100 +28,39 @@ import (
 // 저장된 세션은 실제로 토큰을 발행 할 때 사용되며 발급이 완료되면 세션에서 삭제한다.
 const sessionKeyOriginAuthRequest = "sessions/originAuthRequest"
 
-// ClientRetriever 클라이언트 검색기
-//
-// OAuth2 요청 처리를 위해 요청한 클라이언트의 정보를 검색할 용도의 검색기 인터페이스
-type ClientRetriever interface {
-	// Retrieve 클라이언트를 조회한다.
-	//
-	// Returns:
-	//	 - *client.Client: 조회된 클라이언트
-	//	 - bool: 조회 성공 여부
-	Retrieve(ctx context.Context, id string) (*client.Client, bool)
-}
+type (
+	// GenerateAuthorizationCode 새 인가 코드를 생성한다.
+	GenerateAuthorizationCode func(ctx context.Context, c *client.Client, r *authorization.Request) (*authorization.Code, error)
 
-// ScopeRetriever 스코프 검색기
-//
-// OAuth2 요청 처리를 위해 요청한 스코프의 정보를 검색할 용도의 검색기 인터페이스
-type ScopeRetriever interface {
-	// Retrieve 스코프를 조회한다.
-	Retrieve(ctx context.Context, code ...string) []scope.Scope
-}
+	// RetrieveClient 클라이언트를 조회한다.
+	RetrieveClient func(ctx context.Context, id string) (*client.Client, bool)
 
-// AuthorizationCodeCreator 인가 코드 생성기
-//
-// 자원 소유자의 인가 승인 후 인가 코드 생성을 위한 인터페이스
-type AuthorizationCodeCreator interface {
-	// NewCode 새 인가 코드를 생성한다.
-	NewCode(ctx context.Context, c *client.Client, r *authorization.Request) (*authorization.Code, error)
-}
+	// RetrieveScope 스코프를 조회한다.
+	RetrieveScope func(ctx context.Context, code ...string) []scope.Scope
+
+	// TokenIssue 새 토큰을 발행하는 함수
+	TokenIssue func(ctx context.Context, c *client.Client, r *token.Request) (*token.AccessToken, *token.RefreshToken, error)
+
+	// TokenInspect 토큰의 상세 정보를 조회한다.
+	TokenInspect func(ctx context.Context, c *client.Client, r *token.InspectionRequest) (*token.Inspection, bool, error)
+)
 
 // AuthorizationApproveHandler 인가 요청 처리에 대한 핸들러 함수를 제공하는 구조체
 type AuthorizationApproveHandler struct {
-	authorizationCodeCreator AuthorizationCodeCreator
-	implicitGranter          *token.ImplicitGrant
-}
-
-func NewAuthorizationApproveHandler(authorizationCodeCreator AuthorizationCodeCreator, implicitGranter *token.ImplicitGrant) *AuthorizationApproveHandler {
-	return &AuthorizationApproveHandler{
-		authorizationCodeCreator: authorizationCodeCreator,
-		implicitGranter:          implicitGranter,
-	}
-}
-
-// Handle 자원 소유자의 인가 승인이 완료된 후 인가 요청에서 사용하였던 응답 방식에 따라
-// 적절한 인스턴스(인가 코드 혹은 토큰)을 생성하고 이를 반환한다.
-func (h *AuthorizationApproveHandler) Handle(ctx context.Context, c *client.Client, request *authorization.Request) (any, error) {
-	if request.ResponseType == authorization.ResponseTypeCode {
-		return h.authorizationCodeCreator.NewCode(ctx, c, request)
-	} else if request.ResponseType == authorization.ResponseTypeToken {
-		tokenRequest := &token.Request{
-			Redirect: request.Redirect,
-			Username: request.Username,
-			Scope:    request.Scopes,
-		}
-		return h.implicitGranter.GenerateToken(c, tokenRequest)
-	} else {
-		return nil, fmt.Errorf("%w: invalid response type: %s", oautherr.ErrInvalidRequest, request.ResponseType)
-	}
-}
-
-// TokenIssuer 토큰 발행자
-type TokenIssuer interface {
-	// Issue 액세스 토큰 및 리플레시 토큰을 발행한다.
-	Issue(ctx context.Context, c *client.Client, request *token.Request) (*token.AccessToken, *token.RefreshToken, error)
-}
-
-// TokenInspector 토큰 상세 정보 검색기 인터페이스
-type TokenInspector interface {
-	// Inspection 토큰의 상세 정보를 조회한다.
-	//
-	// Returns:
-	//	 - *token.Inspection: 조회된 토큰의 상세 정보
-	//	 - bool: 조회 성공 여부
-	Inspection(ctx context.Context, c *client.Client, request *token.InspectionRequest) (*token.Inspection, bool, error)
+	GenerateAuthorizationCode GenerateAuthorizationCode
+	ImplicitGranter           *token.ImplicitGranter
 }
 
 // Handler OAuth2의 주요 엔드 포인트를 처리하는 핸들러 함수를 가지고 있는 구조체
 type Handler struct {
-	tokenIssuer TokenIssuer
+	TokenIssuer  *service.TokenIssuer
+	TokenService *service.TokenService
 
-	clientRetriever ClientRetriever
-	scopeRetriever  ScopeRetriever
+	ClientService   *service.ClientService
+	AuthCodeService *service.AuthCodeService
+	ScopeService    *service.ScopeService
 
-	approveHandler *AuthorizationApproveHandler
-
-	inspector TokenInspector
-}
-
-func NewHandler(tokenIssuer TokenIssuer, clientRetriever ClientRetriever, scopeRetriever ScopeRetriever, approveHandler *AuthorizationApproveHandler, inspector TokenInspector) *Handler {
-	return &Handler{
-		tokenIssuer:     tokenIssuer,
-		clientRetriever: clientRetriever,
-		scopeRetriever:  scopeRetriever,
-		approveHandler:  approveHandler,
-		inspector:       inspector,
-	}
+	ImplicitGranter *token.ImplicitGranter
 }
 
 // Authorize OAuth2 인가 코드 부여와 암시적 승인 부여의 인가 단계를 구현한 헨들러
@@ -148,7 +90,7 @@ func (h *Handler) Authorize(ctx *gin.Context) error {
 	}
 
 	requestContext := ctx.Request.Context()
-	clt, ok := h.clientRetriever.Retrieve(requestContext, request.Client)
+	clt, ok := h.ClientService.Retrieve(requestContext, request.Client)
 	if !ok {
 		return NewOAuth2Error(oautherr.ErrInvalidClient, "invalid client")
 	}
@@ -174,7 +116,7 @@ func (h *Handler) Authorize(ctx *gin.Context) error {
 		return WrapAuthRequest(oautherr.ErrInvalidScope, "invalid scope", &request, callback)
 	}
 
-	scopes := h.scopeRetriever.Retrieve(requestContext, requestScopes...)
+	scopes := h.ScopeService.Retrieve(requestContext, requestScopes...)
 
 	authentication, _ := web.RetrieveAuthentication(ctx)
 	request.Username = authentication.Username
@@ -210,7 +152,7 @@ func (h *Handler) Approve(ctx *gin.Context) error {
 	}
 
 	requestContext := ctx.Request.Context()
-	clt, _ := h.clientRetriever.Retrieve(requestContext, request.Client)
+	clt, _ := h.ClientService.Retrieve(requestContext, request.Client)
 	callback, _ := url.Parse(request.Redirect)
 
 	authentication, _ := web.RetrieveAuthentication(ctx)
@@ -225,9 +167,19 @@ func (h *Handler) Approve(ctx *gin.Context) error {
 	}
 	request.Scopes = scope.Join(approvedScopes)
 
-	src, err := h.approveHandler.Handle(requestContext, clt, request)
-	if err != nil {
-		return WrapAuthRequest(err, "error occurred during approve request", request, callback)
+	var src any = nil
+	switch request.ResponseType {
+	case authorization.ResponseTypeCode:
+		src, err = h.AuthCodeService.NewCode(requestContext, clt, request)
+	case authorization.ResponseTypeToken:
+		tokenRequest := &token.Request{
+			Redirect: request.Redirect,
+			Username: request.Username,
+			Scope:    request.Scopes,
+		}
+		src, err = h.ImplicitGranter.GenerateToken(clt, tokenRequest)
+	default:
+		err = fmt.Errorf("%w: invalid response type: %s", oautherr.ErrInvalidRequest, request.ResponseType)
 	}
 
 	enhancer := ChainEnhancer(EnhanceAuthorizationCode, EnhanceImplicit)
@@ -263,7 +215,7 @@ func (h *Handler) IssueToken(ctx *gin.Context) error {
 		return NewOAuth2Error(oautherr.ErrInvalidClient, "invalid client")
 	}
 
-	accessToken, refreshToken, err := h.tokenIssuer.Issue(ctx.Request.Context(), clt, &request)
+	accessToken, refreshToken, err := h.TokenIssuer.Issue(ctx.Request.Context(), clt, &request)
 	if err != nil {
 		return WrapTokenRequest(err, "error occurred during generate token", &request)
 	}
@@ -309,7 +261,7 @@ func (h *Handler) InspectToken(ctx *gin.Context) error {
 		return NewOAuth2Error(oautherr.ErrInvalidClient, "invalid client")
 	}
 
-	inspection, ok, err := h.inspector.Inspection(requestContext, clt, &request)
+	inspection, ok, err := h.TokenService.Inspection(requestContext, clt, &request)
 	if err != nil {
 		log.Sugared().Errorf("error occurred during token inspection: %v", err)
 		return NewOAuth2Error(err, "error occurred during token inspection")
@@ -319,6 +271,70 @@ func (h *Handler) InspectToken(ctx *gin.Context) error {
 	}
 
 	ctx.JSON(http.StatusOK, inspection)
+	return nil
+}
+
+// TokenView API을 이용한 토큰 조회시 반환할 엑세스 토큰 구조체
+type TokenView struct {
+	Value      string    `json:"value"`
+	ClientName string    `json:"clientName"`
+	Active     bool      `json:"active"`
+	Scopes     []string  `json:"scopes"`
+	IssuedAt   time.Time `json:"issuedAt"`
+	ExpiredAt  time.Time `json:"expiredAt"`
+}
+
+func NewTokenView(t *token.AccessToken) TokenView {
+	return TokenView{
+		Value:      t.Value(),
+		ClientName: t.Client().Name(),
+		Active:     t.Available(),
+		Scopes:     t.Scopes(),
+		IssuedAt:   t.Start(),
+		ExpiredAt:  t.End(),
+	}
+}
+
+// ManagementHandler 액세스 토큰을 관리하는 핸들러 구조체
+// 현재까지 발급된 자신의 토큰을 조회하거나 삭제하는등의 핸들링 함수가 포함된다.
+type ManagementHandler struct {
+	TokenService *service.TokenService
+}
+
+func (h *ManagementHandler) TokenManagement(ctx *gin.Context) error {
+	switch ctx.GetHeader("Accept") {
+	case "application/json":
+		authentication, _ := web.RetrieveAuthentication(ctx)
+
+		tokens := h.TokenService.GetIssuedTokens(ctx.Request.Context(), authentication.Username)
+
+		var view []TokenView
+		for _, t := range tokens {
+			view = append(view, NewTokenView(&t))
+		}
+		if len(view) == 0 {
+			view = make([]TokenView, 0)
+		}
+		ctx.JSON(http.StatusOK, web.NewSuccess(view))
+	default:
+		ctx.HTML(http.StatusOK, "manage-tokens.html", gin.H{})
+	}
+	return nil
+}
+
+func (h *ManagementHandler) DeleteToken(ctx *gin.Context) error {
+	t := ctx.Param("tokenValue")
+	authentication, _ := web.RetrieveAuthentication(ctx)
+
+	if err := h.TokenService.DeleteToken(ctx.Request.Context(), authentication, t); err != nil {
+		if errors.Is(err, oautherr.ErrInvalidRequest) || errors.Is(err, oautherr.ErrUnauthorized) {
+			return web.Wrap(err, web.ErrCodeBadRequest, "찾을 수 없는 엑세스 토큰")
+		} else {
+			return web.Wrap(err, web.ErrCodeUnknown, "알 수 없는 에러")
+		}
+	}
+
+	ctx.JSON(http.StatusOK, web.NewSuccess("ok"))
 	return nil
 }
 

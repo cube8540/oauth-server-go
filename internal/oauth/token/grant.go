@@ -77,21 +77,21 @@ func (srv *AuthorizationCodeGranter) GenerateToken(c *client.Client, request *Re
 	}
 }
 
-// ImplicitGrant OAuth2 암묵적 승인 방식 구현체
-type ImplicitGrant struct {
+// ImplicitGranter OAuth2 암묵적 승인 방식 구현체
+type ImplicitGranter struct {
 	// accessTokenGenerator 텍스트 형태의 랜덤 문자열로 토큰을 생성하는 함수
 	// 엑세스 토큰의 실제 토큰값을 생성하는데 사용한다.
 	accessTokenGenerator GenerateToken
 }
 
-func NewImplicitGrant(tokenGenerator GenerateToken) *ImplicitGrant {
-	return &ImplicitGrant{
+func NewImplicitGrant(tokenGenerator GenerateToken) *ImplicitGranter {
+	return &ImplicitGranter{
 		accessTokenGenerator: tokenGenerator,
 	}
 }
 
 // GenerateToken 새 엑세스 토큰을 생성하며 리플레시 토큰은 항상 nil을 반환한다.
-func (srv *ImplicitGrant) GenerateToken(c *client.Client, request *Request) (*AccessToken, error) {
+func (srv *ImplicitGranter) GenerateToken(c *client.Client, request *Request) (*AccessToken, error) {
 	scopes := scope.Split(request.Scope)
 	if !array.ContainsAll(c.Scopes(), scopes) {
 		return nil, oautherr.ErrInvalidScope

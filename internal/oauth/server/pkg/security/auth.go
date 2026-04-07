@@ -11,23 +11,19 @@ import (
 // oauth2ShareKeyAuthClient 인증된 클라이언트 정보를 Gin 컨텍스트에서 공유하는 키
 const oauth2ShareKeyAuthClient = "oauth2/security/authClient"
 
-// ClientAuthenticationProvider 클라이언트의 인증을 제공하는 인터페이스
-type ClientAuthenticationProvider interface {
-
-	// Authenticate 주어진 아이디와 패스워드를 통해 클라이언트의 인증을 진행한다.
-	// 인증 완료시 인증된 클라이언트를 반환하며 실패시 에러를 반환한다.
-	Authenticate(ctx context.Context, id, secret string) (*client.Client, error)
-}
+// ClientAuthenticate 클라이언트의 아이디와 패스워드를 통해 클라이언트의 인증을 진행한다.
+// 인증 완료시 인증된 클라이언트를 반환하며 실패시 에러를 반환한다.
+type ClientAuthenticate func(ctx context.Context, id, secret string) (*client.Client, error)
 
 // ClientBasicAuthenticateHandler HTTP Basic Authentication을 이용하여
 // OAuth2 클라이언트을 인증하는 Gin 미들웨어 함수를 생성한다.
-func ClientBasicAuthenticateHandler(provider ClientAuthenticationProvider) gin.HandlerFunc {
+func ClientBasicAuthenticateHandler(authenticate ClientAuthenticate) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		_, exists := ctx.Get(oauth2ShareKeyAuthClient)
 		if !exists {
 			id, secret, ok := ctx.Request.BasicAuth()
 			if ok {
-				c, err := provider.Authenticate(ctx.Request.Context(), id, secret)
+				c, err := authenticate(ctx.Request.Context(), id, secret)
 				if err != nil {
 					_ = ctx.Error(err)
 					ctx.Abort()
@@ -47,7 +43,7 @@ type ClientAuthRequest struct {
 }
 
 // ClientFormAuthenticationHandler 클라이언트 인증 요청을 받아 OAuth2 클라이언트를 인증하는 Gin 미들웨어 함수를 생성한다.
-func ClientFormAuthenticationHandler(provider ClientAuthenticationProvider) gin.HandlerFunc {
+func ClientFormAuthenticationHandler(authenticate ClientAuthenticate) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		_, exists := ctx.Get(oauth2ShareKeyAuthClient)
 		if !exists {
@@ -58,7 +54,7 @@ func ClientFormAuthenticationHandler(provider ClientAuthenticationProvider) gin.
 				return
 			}
 			if r.ID != "" {
-				c, err := provider.Authenticate(ctx.Request.Context(), r.ID, r.Secret)
+				c, err := authenticate(ctx.Request.Context(), r.ID, r.Secret)
 				if err != nil {
 					_ = ctx.Error(err)
 					ctx.Abort()

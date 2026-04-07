@@ -26,6 +26,12 @@ type TokenRepository interface {
 	//	 - bool: 조회 성공 여부
 	FindRefreshTokenByValue(ctx context.Context, token string) (*token.RefreshToken, bool)
 
+	// FindAccessTokenByUsername 인자로 받은 유저 아이디로 발급된 엑세스 토큰을 조회한다.
+	//
+	// Returns:
+	//		- []*token.AccessToken: 유저 아이디로 발급된 엑세스 토큰 리스트
+	FindAccessTokenByUsername(ctx context.Context, username string) []token.AccessToken
+
 	// SaveAccessToken 저장소에 엑세스 토큰을 저장한다.
 	SaveAccessToken(ctx context.Context, accessToken *token.AccessToken) error
 
